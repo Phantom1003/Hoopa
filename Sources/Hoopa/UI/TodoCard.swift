@@ -24,14 +24,10 @@ struct TodoCard: View {
             .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 6) {
-                TextField("To-do", text: $draft, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
+                GrowingTextEditor(text: $draft, placeholder: "To-do",
+                                  onCommit: { commit(); editing = false }, focused: $editing)
                     .foregroundStyle(todo.isDone ? Style.secondary : Style.text)
-                    .strikethrough(todo.isDone, color: Style.secondary)
-                    .lineLimit(1...6)
-                    .focused($editing)
-                    .onSubmit { commit(); editing = false }
+                    .opacity(todo.isDone ? 0.7 : 1)
                     .onChange(of: editing) { _, on in if !on { commit() } }
                     .onChange(of: todo.title) { _, t in if !editing { draft = t } }
 
@@ -42,12 +38,12 @@ struct TodoCard: View {
                             .help(b.detailDescription)
                     }
                     if let d = todo.due {
-                        Button { showDue = true } label: { DueChip(due: d) }.buttonStyle(.plain)
+                        Button { showDue.toggle() } label: { DueChip(due: d) }.buttonStyle(.plain)
                     }
                     if hovering {
                         if todo.due == nil {
-                            Button { showDue = true } label: { Image(systemName: "timer") }
-                                .buttonStyle(.plain).foregroundStyle(Style.secondary).help("Countdown / Date")
+                            Button { showDue.toggle() } label: { Image(systemName: "timer") }
+                                .buttonStyle(.plain).foregroundStyle(Style.secondary).help("Countdown / Time")
                         }
                         Button { coordinator.bind(todo) } label: {
                             Image(systemName: todo.binding == nil ? "scope" : "arrow.triangle.2.circlepath")
@@ -59,8 +55,9 @@ struct TodoCard: View {
                     }
                 }
                 .font(.system(size: 12))
-                .popover(isPresented: $showDue) {
-                    DuePicker(due: Binding(get: { todo.due }, set: { store.setDue($0, for: todo.id) })) { showDue = false }
+                .popover(isPresented: $showDue, arrowEdge: .bottom) {
+                    DuePicker(spec: Binding(get: { todo.due.map(DueSpec.init) },
+                                            set: { store.setDue($0?.resolve(), for: todo.id) })) { showDue = false }
                 }
             }
             Spacer(minLength: 0)
@@ -78,8 +75,8 @@ struct TodoCard: View {
             } else {
                 Button("Bind to Window / Page…") { coordinator.bind(todo) }
             }
-            Button("Countdown / Date…") { showDue = true }
-            if todo.due != nil { Button("Clear Time") { store.setDue(nil, for: todo.id) } }
+            Button("Countdown / Time…") { showDue = true }
+            if todo.due != nil { Button("Remove Time") { store.setDue(nil, for: todo.id) } }
             Divider()
             Button(todo.isDone ? "Mark as Not Done" : "Mark as Done") { store.toggleDone(todo.id) }
             Button("Delete", role: .destructive) { store.delete(todo.id) }

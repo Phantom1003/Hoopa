@@ -11,7 +11,7 @@ final class AppCoordinator: ObservableObject {
     @Published var isCompact = false { didSet { if oldValue != isCompact { onCompactChanged?(isCompact) } } }
     /// The binding and time "chosen but not yet created" in the composer.
     @Published var pendingBinding: ContextBinding?
-    @Published var pendingDue: Due?
+    @Published var pendingDue: DueSpec?
 
     /// Pick: nil means picking for the to-do about to be created in the composer.
     var onStartPicking: ((TodoItem?) -> Void)?

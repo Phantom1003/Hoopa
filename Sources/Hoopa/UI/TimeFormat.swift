@@ -19,6 +19,7 @@ enum TimeFormat {
     }
 
     static func clockTime(_ d: Date) -> String { clock.string(from: d) }
+    static func monthDay(_ d: Date) -> String { monthDay.string(from: d) }
 
     /// Today / Tomorrow / Day after / Yesterday / Sep 25
     static func day(_ d: Date, now: Date) -> String {
@@ -50,8 +51,12 @@ enum TimeFormat {
             let overdue = Calendar.current.startOfDay(for: d) < Calendar.current.startOfDay(for: now)
             return DueLabel(text: day(d, now: now), detail: nil, overdue: overdue,
                             urgent: Calendar.current.isDate(d, inSameDayAs: now))
+        case .dateTime(let d):
+            let left = d.timeIntervalSince(now)
+            return DueLabel(text: day(d, now: now), detail: clockTime(d), overdue: left < 0,
+                            urgent: left >= 0 && left < 3600)
         }
     }
 
-    static func minutes(_ m: Int) -> String { m >= 60 && m % 60 == 0 ? "\(m / 60) h" : "\(m) min" }
+    static func minutes(_ m: Int) -> String { "\(m) min" }
 }

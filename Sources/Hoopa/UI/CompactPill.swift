@@ -16,7 +16,7 @@ struct CompactPill: View {
                 // The title area is not a button: a button would swallow the press and the pill could not be dragged. Tap to expand, press and hold to drag.
                 HStack(spacing: 6) {
                     Text(t.title).lineLimit(1).truncationMode(.tail).frame(maxWidth: 220, alignment: .leading)
-                    if let d = t.due { DueChip(due: d, showDetail: d.isCountdown) }
+                    if let d = t.due { DueChip(due: d) }
                     if store.active.count > 1 {
                         Text("+\(store.active.count - 1)").font(.system(size: 11, weight: .semibold)).foregroundStyle(Style.secondary)
                     }

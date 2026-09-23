@@ -82,15 +82,16 @@ struct ContextBinding: Codable, Equatable {
     }
 }
 
-/// A to-do's time: a countdown (N minutes from when it was set) or a plain day.
+/// A to-do's time: a countdown (N minutes from when it was set), a plain day, or a moment on a day.
 enum Due: Codable, Equatable {
     case countdown(end: Date, minutes: Int)
     case date(Date)
+    case dateTime(Date)
 
     var date: Date {
         switch self {
         case .countdown(let end, _): return end
-        case .date(let d): return d
+        case .date(let d), .dateTime(let d): return d
         }
     }
 
@@ -99,11 +100,33 @@ enum Due: Codable, Equatable {
         return false
     }
 
-    /// The notification moment: when the countdown ends; 9:00 that day for a date.
+    /// The notification moment: when the countdown ends; the moment itself for a date with a time; 9:00 that day for a plain date.
     var notifyAt: Date {
         switch self {
-        case .countdown(let end, _): return end
+        case .countdown(let end, _), .dateTime(let end): return end
         case .date(let d): return Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: d) ?? d
+        }
+    }
+}
+
+/// A time setting not yet on a to-do: a countdown only keeps the minutes and starts ticking at the moment of submission.
+enum DueSpec: Equatable {
+    case countdown(minutes: Int)
+    case dateTime(Date)
+
+    func resolve(now: Date = Date()) -> Due {
+        switch self {
+        case .countdown(let m): return .countdown(end: now.addingTimeInterval(TimeInterval(m * 60)), minutes: m)
+        case .dateTime(let d): return .dateTime(d)
+        }
+    }
+
+    /// The setting derived back from an existing time (for editing). A plain date counts as 9:00 that day.
+    init(_ due: Due) {
+        switch due {
+        case .countdown(_, let m): self = .countdown(minutes: m)
+        case .dateTime(let d): self = .dateTime(d)
+        case .date(let d): self = .dateTime(Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: d) ?? d)
         }
     }
 }

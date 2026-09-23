@@ -6,6 +6,8 @@ struct BindingChip: View {
     let binding: ContextBinding
     var jumping = false
     var compact = false
+    var showArrow = true     // no ↗ while creating, jumping is not possible yet
+    var bare = false         // no capsule background of its own (when placed inside another capsule)
 
     private var icon: NSImage? {
         guard let p = binding.appPath else { return nil }
@@ -26,12 +28,20 @@ struct BindingChip: View {
             }
             if jumping {
                 ProgressView().controlSize(.mini)
-            } else if !compact {
+            } else if !compact && showArrow {
                 Image(systemName: "arrow.up.forward").font(.system(size: 9, weight: .bold)).foregroundStyle(Style.secondary)
             }
         }
         .foregroundStyle(Style.text)
-        .chip()
+        .modifier(OptionalChip(enabled: !bare))
+    }
+}
+
+/// No capsule background in bare mode.
+struct OptionalChip: ViewModifier {
+    let enabled: Bool
+    func body(content: Content) -> some View {
+        if enabled { content.chip() } else { content.font(.system(size: 12, weight: .medium)).lineLimit(1) }
     }
 }
 
@@ -39,6 +49,7 @@ struct BindingChip: View {
 struct DueChip: View {
     let due: Due
     var showDetail = true
+    var bare = false
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
@@ -48,13 +59,14 @@ struct DueChip: View {
                 Text(l.text).monospacedDigit()
                 if showDetail, let d = l.detail {
                     Text("·").foregroundStyle(Style.tertiary)
-                    Text(d).monospacedDigit().foregroundStyle(Style.secondary)
+                    // A countdown's due moment is derived, so grey; a date-time was chosen by the user and takes the main text colour.
+                    Text(d).monospacedDigit().foregroundStyle(due.isCountdown ? Style.secondary : Color.primary)
                 }
             }
             .lineLimit(1)
             .fixedSize()          // the time must never wrap to two lines
             .foregroundStyle(l.overdue ? Style.overdue : (l.urgent ? Style.urgent : Style.text))
-            .chip(l.overdue ? Style.overdue.opacity(0.18) : Style.chip)
+            .modifier(OptionalChip(enabled: !bare))
             .layoutPriority(1)
         }
     }

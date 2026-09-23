@@ -21,7 +21,11 @@ enum Notifier {
         requestIfNeeded()
         let content = UNMutableNotificationContent()
         content.title = t.title
-        content.body = due.isCountdown ? "Countdown finished" : "Due today"
+        switch due {
+        case .countdown: content.body = "Countdown finished"
+        case .date: content.body = "Due today"
+        case .dateTime: content.body = "Time's up"
+        }
         if let b = t.binding { content.body += " · Click to return to \(b.shortDescription)" }
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(due.notifyAt.timeIntervalSinceNow, 1), repeats: false)

@@ -20,6 +20,8 @@ struct ChipStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.system(size: 12, weight: .medium))
+            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
             .background(Capsule().fill(tint))
@@ -62,4 +64,38 @@ struct WindowDraggable: ViewModifier {
 
 extension View {
     func windowDraggable() -> some View { modifier(WindowDraggable()) }
+}
+
+/// A Liquid Glass button (.glass on macOS 26+), a system button on older systems.
+/// Selected / primary buttons avoid the solid .glassProminent; the glass is tinted with the accent colour instead, keeping its translucency.
+struct GlassButton: ViewModifier {
+    var prominent = false
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            if prominent {
+                content.buttonStyle(.glass).tint(Style.accent).fontWeight(.semibold)
+            } else {
+                content.buttonStyle(.glass)
+            }
+        } else {
+            if prominent { content.buttonStyle(.borderedProminent) } else { content.buttonStyle(.bordered) }
+        }
+    }
+}
+
+/// Accent-tinted glass (dial knobs, the selected state), a translucent accent colour on older systems.
+struct TintedGlass<S: Shape>: ViewModifier {
+    let shape: S
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular.tint(Style.accent.opacity(0.8)).interactive(), in: shape)
+        } else {
+            content.background(shape.fill(Style.accent.opacity(0.4)))
+        }
+    }
+}
+
+extension View {
+    func glassButton(prominent: Bool = false) -> some View { modifier(GlassButton(prominent: prominent)) }
+    func tintedGlass<S: Shape>(_ shape: S) -> some View { modifier(TintedGlass(shape: shape)) }
 }
