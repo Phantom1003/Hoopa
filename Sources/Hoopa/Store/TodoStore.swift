@@ -22,13 +22,25 @@ final class TodoStore: ObservableObject {
     // MARK: - Operations
 
     @discardableResult
-    func add(_ title: String) -> TodoItem? {
+    func add(_ title: String, binding: ContextBinding? = nil, due: Due? = nil) -> TodoItem? {
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return nil }
-        let item = TodoItem(title: t)
+        let item = TodoItem(title: t, binding: binding, due: due)
         todos.insert(item, at: 0)
+        Notifier.schedule(item)
         scheduleSave()
         return item
+    }
+
+    func setDue(_ due: Due?, for id: UUID) {
+        mutate(id) { $0.due = due }
+    }
+
+    /// The to-do shown while collapsed: the timed one due soonest, otherwise the first in list order.
+    var compactItem: TodoItem? {
+        let act = active
+        let timed = act.filter { $0.due != nil }.sorted { $0.due!.date < $1.due!.date }
+        return timed.first ?? act.first
     }
 
     func toggleDone(_ id: UUID) {
@@ -49,11 +61,13 @@ final class TodoStore: ObservableObject {
     }
 
     func delete(_ id: UUID) {
+        Notifier.cancel(id)
         todos.removeAll { $0.id == id }
         scheduleSave()
     }
 
     func clearDone() {
+        todos.filter { $0.isDone }.forEach { Notifier.cancel($0.id) }
         todos.removeAll { $0.isDone }
         scheduleSave()
     }
@@ -72,6 +86,7 @@ final class TodoStore: ObservableObject {
         var item = todos[idx]
         block(&item)
         todos[idx] = item
+        Notifier.schedule(item)
         scheduleSave()
     }
 

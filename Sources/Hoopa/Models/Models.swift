@@ -82,6 +82,32 @@ struct ContextBinding: Codable, Equatable {
     }
 }
 
+/// A to-do's time: a countdown (N minutes from when it was set) or a plain day.
+enum Due: Codable, Equatable {
+    case countdown(end: Date, minutes: Int)
+    case date(Date)
+
+    var date: Date {
+        switch self {
+        case .countdown(let end, _): return end
+        case .date(let d): return d
+        }
+    }
+
+    var isCountdown: Bool {
+        if case .countdown = self { return true }
+        return false
+    }
+
+    /// The notification moment: when the countdown ends; 9:00 that day for a date.
+    var notifyAt: Date {
+        switch self {
+        case .countdown(let end, _): return end
+        case .date(let d): return Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: d) ?? d
+        }
+    }
+}
+
 struct TodoItem: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var title: String
@@ -89,10 +115,15 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var createdAt: Date = Date()
     var completedAt: Date? = nil
     var binding: ContextBinding? = nil
+    var due: Due? = nil
 
-    init(title: String) { self.title = title }
+    init(title: String, binding: ContextBinding? = nil, due: Due? = nil) {
+        self.title = title
+        self.binding = binding
+        self.due = due
+    }
 
-    private enum CodingKeys: String, CodingKey { case id, title, isDone, createdAt, completedAt, binding }
+    private enum CodingKeys: String, CodingKey { case id, title, isDone, createdAt, completedAt, binding, due }
 
     /// A binding in an old format that cannot be read counts as unbound; the whole file must stay readable.
     init(from decoder: Decoder) throws {
@@ -103,5 +134,6 @@ struct TodoItem: Identifiable, Codable, Equatable {
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
         binding = try? c.decodeIfPresent(ContextBinding.self, forKey: .binding)
+        due = try? c.decodeIfPresent(Due.self, forKey: .due)
     }
 }

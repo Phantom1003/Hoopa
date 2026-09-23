@@ -1,38 +1,49 @@
 import SwiftUI
 
 struct RootView: View {
+    @EnvironmentObject var coordinator: AppCoordinator
+
+    var body: some View {
+        if coordinator.isCompact {
+            CompactPill()
+        } else {
+            ExpandedView()
+        }
+    }
+}
+
+/// Expanded: the input pill + the list of sticky-note cards.
+struct ExpandedView: View {
     @EnvironmentObject var store: TodoStore
     @EnvironmentObject var permissions: PermissionState
     @EnvironmentObject var coordinator: AppCoordinator
-
-    @State private var newTitle = ""
     @State private var showDone = false
-    @FocusState private var inputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             header
             if !permissions.accessibility { permissionBanner }
-            inputBar
-            Divider().padding(.top, 8)
+            InputPill().padding(.horizontal, 10)
             list
         }
         .frame(minWidth: 300, minHeight: 320)
-        .background(VisualEffectView(material: .popover).ignoresSafeArea())
+        // The NSScrollView under the list is square and would show white sharp corners outside the glass's rounding: clip it round first, then lay the glass.
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .glass(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(alignment: .bottom) { toast }
-        .onAppear { DispatchQueue.main.async { inputFocused = true } }
     }
-
-    // MARK: Top
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: "checklist").foregroundStyle(Color.accentColor)
-            Text("Hoopa").font(.headline)
+            Button { coordinator.isCompact = true } label: {
+                Image(systemName: "chevron.up.circle.fill").font(.system(size: 15)).foregroundStyle(Style.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Collapse into Pill")
+            Text("Hoopa").font(.system(size: 13, weight: .semibold)).foregroundStyle(Style.text)
             Spacer()
             if !store.active.isEmpty {
-                Text("\(store.active.count) to-dos")
-                    .font(.caption).foregroundStyle(.secondary)
+                Text("\(store.active.count) items").font(.caption).foregroundStyle(Style.secondary)
             }
             Menu {
                 Toggle("Keep Panel on Top", isOn: Binding(
@@ -47,84 +58,62 @@ struct RootView: View {
                 Text("Shortcut ⌃⌥T shows / hides the panel")
                 Button("Quit Hoopa") { coordinator.onQuit?() }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: "ellipsis.circle").foregroundStyle(Style.secondary)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
         }
-        .padding(.leading, 30)
-        .padding(.trailing, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
     }
 
     private var permissionBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Text("The Accessibility permission is needed to recognise windows and jump")
-                .font(.caption)
+            Text("The Accessibility permission is needed to recognise windows and jump").font(.caption).foregroundStyle(Style.text)
             Spacer()
             Button("Grant") { permissions.request() }.controlSize(.small)
         }
         .padding(8)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.12)))
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.18)))
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
     }
 
-    private var inputBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "plus.circle.fill").foregroundStyle(.secondary)
-            TextField("Add a to-do, Return confirms", text: $newTitle)
-                .textFieldStyle(.plain)
-                .focused($inputFocused)
-                .onSubmit(addTodo)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.06)))
-        .padding(.horizontal, 10)
-    }
-
-    private func addTodo() {
-        if store.add(newTitle) != nil { newTitle = "" }
-        inputFocused = true
-    }
-
-    // MARK: List
-
     private var list: some View {
         ScrollView {
-            LazyVStack(spacing: 2) {
+            LazyVStack(spacing: 4) {
                 if store.active.isEmpty && (!showDone || store.done.isEmpty) {
                     emptyState
                 }
                 ForEach(store.active) { todo in
-                    TodoRow(todo: todo)
+                    TodoCard(todo: todo)
                 }
                 if showDone && !store.done.isEmpty {
                     HStack {
-                        Text("Completed · \(store.done.count)").font(.caption).foregroundStyle(.secondary)
+                        Text("Completed · \(store.done.count)").font(.caption).foregroundStyle(Style.secondary)
                         Spacer()
                     }
                     .padding(.horizontal, 8)
                     .padding(.top, 10)
                     ForEach(store.done) { todo in
-                        TodoRow(todo: todo)
+                        TodoCard(todo: todo)
                     }
                 }
             }
-            .padding(8)
+            .padding(10)
         }
+        .scrollContentBackground(.hidden)
     }
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "scope").font(.system(size: 28)).foregroundStyle(.secondary)
-            Text("No to-dos yet").font(.subheadline).foregroundStyle(.secondary)
-            Text("Add one, then click ⌖ to bind it to the window, tab or document you are working in.\nAfter that one click takes you straight back to that page.")
-                .font(.caption).foregroundStyle(.tertiary)
+            Image(systemName: "scope").font(.system(size: 28)).foregroundStyle(Style.secondary)
+            Text("No to-dos yet").font(.subheadline).foregroundStyle(Style.secondary)
+            Text("Click ⌖ to choose the window / page to bind, ◔ to set a countdown or date, then type the content and press Return.\nAfter that one click on the chip takes you straight back to that page.")
+                .font(.caption).foregroundStyle(Style.tertiary)
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 40)
@@ -137,10 +126,11 @@ struct RootView: View {
         if let t = coordinator.toast {
             Text(t)
                 .font(.caption)
+                .foregroundStyle(Style.text)
                 .lineLimit(2)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.ultraThickMaterial))
+                .background(Capsule().fill(.ultraThickMaterial))
                 .shadow(radius: 4)
                 .padding(.bottom, 12)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

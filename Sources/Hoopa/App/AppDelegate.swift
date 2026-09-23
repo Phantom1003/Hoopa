@@ -1,7 +1,8 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     let store = TodoStore()
     let permissions = PermissionState()
     let coordinator = AppCoordinator()
@@ -16,21 +17,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if AX.isTrusted { DispatchQueue.global().async { AX.resetEnhancedUIOnce() } }
         coordinator.onStartPicking = { [weak self] todo in self?.startPicking(for: todo) }
         coordinator.onAlwaysOnTopChanged = { [weak self] on in self?.panel.setAlwaysOnTop(on) }
+        coordinator.onCompactChanged = { [weak self] compact in
+            self?.panel.setCompact(compact)
+            UserDefaults.standard.set(compact, forKey: "compact")
+        }
         coordinator.onQuit = { NSApp.terminate(nil) }
 
         let root = RootView()
             .environmentObject(store)
             .environmentObject(permissions)
             .environmentObject(coordinator)
-        let hosting = FirstMouseHostingView(rootView: root)
+        let hosting = FirstMouseHostingView(rootView: AnyView(root))
         panel = FloatingPanel(contentView: hosting)
+        UNUserNotificationCenter.current().delegate = self
 
         setupStatusItem()
         setupHotkey()
         panel.show()
+        if UserDefaults.standard.bool(forKey: "compact") { coordinator.isCompact = true }
+        // Notifications scheduled by the last run may be gone; schedule them again.
+        store.todos.forEach(Notifier.schedule)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    // MARK: Notifications
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let id = UUID(uuidString: response.notification.request.identifier), let todo = store.item(id) {
+            if todo.binding != nil {
+                coordinator.jump(todo)
+            } else {
+                coordinator.isCompact = false
+                panel.show()
+            }
+        }
+        completionHandler()
+    }
 
     // MARK: Menu bar
 
@@ -48,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let event = NSApp.currentEvent, event.type == .rightMouseUp {
             let menu = NSMenu()
             menu.addItem(withTitle: panel.isVisible ? "Hide Panel" : "Show Panel", action: #selector(togglePanel), keyEquivalent: "")
+            menu.addItem(withTitle: coordinator.isCompact ? "Expand" : "Collapse into Pill", action: #selector(toggleCompact), keyEquivalent: "")
             menu.addItem(.separator())
             menu.addItem(withTitle: "Quit Hoopa", action: #selector(quit), keyEquivalent: "q")
             menu.items.forEach { $0.target = self }
@@ -66,6 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.show()
         }
     }
+
+    @objc private func toggleCompact() { coordinator.isCompact.toggle() }
 
     @objc private func quit() { NSApp.terminate(nil) }
 
@@ -88,8 +120,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Binding flow
 
-    private func startPicking(for todo: TodoItem) {
-        Log.write("Pick start todo=\(todo.title) trusted=\(AX.isTrusted) pickerBusy=\(picker != nil)")
+    /// todo nil: pick for the to-do about to be created in the composer; the result goes to coordinator.pendingBinding.
+    private func startPicking(for todo: TodoItem?) {
+        Log.write("Pick start todo=\(todo?.title ?? "(new to-do)") trusted=\(AX.isTrusted) pickerBusy=\(picker != nil)")
         guard picker == nil else { return }
         guard AX.isTrusted else {
             Log.write("Pick aborted: Accessibility not granted")
@@ -112,7 +145,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.panel.show()
             Log.write("Pick finished binding=\(binding.map { "\($0.shortDescription) anchors=\($0.anchors.map(\.kindLabel).joined(separator: ">"))" } ?? "cancelled")")
             if let binding {
-                self.store.setBinding(binding, for: todo.id)
+                if let todo {
+                    self.store.setBinding(binding, for: todo.id)
+                } else {
+                    self.coordinator.pendingBinding = binding
+                }
                 self.coordinator.showToast("Bound: \(binding.shortDescription)")
             } else {
                 self.coordinator.toast = nil
