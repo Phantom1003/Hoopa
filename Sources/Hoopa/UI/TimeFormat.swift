@@ -8,6 +8,9 @@ enum TimeFormat {
     private static let monthDay: DateFormatter = {
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US"); f.dateFormat = "MMM d"; return f
     }()
+    private static let yearMonthDay: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US"); f.dateFormat = "MMM d, yyyy"; return f
+    }()
 
     /// Remaining time: "04:23" under an hour, otherwise "1h 05m"; negative once past.
     static func remaining(until end: Date, now: Date) -> String {
@@ -19,7 +22,6 @@ enum TimeFormat {
     }
 
     static func clockTime(_ d: Date) -> String { clock.string(from: d) }
-    static func monthDay(_ d: Date) -> String { monthDay.string(from: d) }
 
     /// Today / Tomorrow / Day after / Yesterday / Sep 25
     static func day(_ d: Date, now: Date) -> String {
@@ -30,8 +32,13 @@ enum TimeFormat {
         case 1: return "Tomorrow"
         case 2: return "Day after"
         case -1: return "Yesterday"
-        default: return monthDay.string(from: d)
+        default: return monthDay(d, now: now)
         }
+    }
+
+    /// Sep 25; with the year when not this year: Sep 25, 2027
+    static func monthDay(_ d: Date, now: Date = Date()) -> String {
+        Calendar.current.isDate(d, equalTo: now, toGranularity: .year) ? monthDay.string(from: d) : yearMonthDay.string(from: d)
     }
 
     struct DueLabel {

@@ -43,7 +43,7 @@ struct DuePicker: View {
                     Button { showCalendar = true } label: {
                         Label(TimeFormat.monthDay(day), systemImage: "calendar")
                             .monospacedDigit()
-                            .frame(width: 74)
+                            .frame(width: 100)
                     }
                     .glassButton(prominent: !(isDay(0) || isDay(1) || isDay(2))).controlSize(.small)
                     .popover(isPresented: $showCalendar) {

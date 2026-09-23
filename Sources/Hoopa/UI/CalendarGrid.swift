@@ -59,7 +59,7 @@ struct CalendarGrid: View {
     private func toggle(_ m: Mode) {
         if mode == m { mode = .days; return }
         mode = m
-        if m == .years { yearPageStart = shownYear - shownYear % 12 }
+        if m == .years { yearPageStart = shownYear - 5 }   // the current year lands in the middle of the page
     }
 
     /// The arrows: months in day mode, years in month mode, 12 years in year mode.
