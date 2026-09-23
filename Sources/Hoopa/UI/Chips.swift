@@ -58,9 +58,14 @@ struct DueChip: View {
                 Image(systemName: due.isCountdown ? "timer" : "calendar").font(.system(size: 11))
                 Text(l.text).monospacedDigit()
                 if showDetail, let d = l.detail {
-                    Text("·").foregroundStyle(Style.tertiary)
-                    // A countdown's due moment is derived, so grey; a date-time was chosen by the user and takes the main text colour.
-                    Text(d).monospacedDigit().foregroundStyle(due.isCountdown ? Style.secondary : Color.primary)
+                    if due.isCountdown {
+                        // A countdown's due moment is derived: with a separator dot, in grey.
+                        Text("·").foregroundStyle(Style.tertiary)
+                        Text(d).monospacedDigit().foregroundStyle(Style.secondary)
+                    } else {
+                        // A date and its time are one thing: directly after, same colour.
+                        Text(d).monospacedDigit()
+                    }
                 }
             }
             .lineLimit(1)

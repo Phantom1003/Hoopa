@@ -23,7 +23,7 @@ struct ExpandedView: View {
         VStack(spacing: 0) {
             header
             if !permissions.accessibility { permissionBanner }
-            InputPill().padding(.horizontal, 10)
+            InputPill().padding(.horizontal, 12)
             list
         }
         .frame(minWidth: 300, minHeight: 320)
@@ -81,7 +81,7 @@ struct ExpandedView: View {
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.18)))
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.bottom, 6)
     }
 
@@ -99,14 +99,15 @@ struct ExpandedView: View {
                         Text("Completed · \(store.done.count)").font(.caption).foregroundStyle(Style.secondary)
                         Spacer()
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 12)
                     .padding(.top, 10)
                     ForEach(store.done) { todo in
                         TodoCard(todo: todo)
                     }
                 }
             }
-            .padding(10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
         .scrollContentBackground(.hidden)
     }

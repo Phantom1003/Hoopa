@@ -62,8 +62,8 @@ struct TodoCard: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 12).fill(hovering ? Style.cardHover : Style.card))
         .onHover { hovering = $0 }
         .onAppear { draft = todo.title }
