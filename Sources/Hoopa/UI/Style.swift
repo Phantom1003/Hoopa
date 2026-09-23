@@ -48,3 +48,18 @@ struct GlassBackground<S: Shape>: ViewModifier {
 extension View {
     func glass<S: Shape>(_ shape: S) -> some View { modifier(GlassBackground(shape: shape)) }
 }
+
+/// Drag the window by pressing on empty space (a borderless window has no title bar). macOS 15+ uses the system's WindowDragGesture.
+struct WindowDraggable: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.gesture(WindowDragGesture())
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func windowDraggable() -> some View { modifier(WindowDraggable()) }
+}

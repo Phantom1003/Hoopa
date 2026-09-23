@@ -30,6 +30,7 @@ struct ExpandedView: View {
         // The NSScrollView under the list is square and would show white sharp corners outside the glass's rounding: clip it round first, then lay the glass.
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .glass(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .windowDraggable()
         .overlay(alignment: .bottom) { toast }
     }
 
@@ -67,6 +68,8 @@ struct ExpandedView: View {
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 8)
+        .contentShape(Rectangle())
+        .windowDraggable()
     }
 
     private var permissionBanner: some View {
