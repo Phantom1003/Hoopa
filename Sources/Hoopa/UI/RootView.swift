@@ -5,7 +5,10 @@ struct RootView: View {
 
     var body: some View {
         if coordinator.isCompact {
-            CompactPill()
+            switch coordinator.compactStyle {
+            case .pill: CompactPill()
+            case .stack: CompactStack()
+            }
         } else {
             ExpandedView()
         }
@@ -51,6 +54,9 @@ struct ExpandedView: View {
                     get: { coordinator.alwaysOnTop },
                     set: { coordinator.alwaysOnTop = $0; coordinator.onAlwaysOnTopChanged?($0) }))
                 Toggle("Show Completed", isOn: $showDone)
+                Picker("Collapsed Style", selection: $coordinator.compactStyle) {
+                    ForEach(CompactStyle.allCases) { Text($0.label).tag($0) }
+                }
                 Divider()
                 Button(permissions.accessibility ? "Accessibility: Granted" : "Grant Accessibility Permission…") { permissions.request() }
                     .disabled(permissions.accessibility)

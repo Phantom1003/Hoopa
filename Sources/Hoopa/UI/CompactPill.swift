@@ -45,6 +45,9 @@ struct CompactPill: View {
         .windowDraggable()
         .contextMenu {
             Button("Expand") { coordinator.isCompact = false }
+            Picker("Collapsed Style", selection: $coordinator.compactStyle) {
+                ForEach(CompactStyle.allCases) { Text($0.label).tag($0) }
+            }
             if let t = store.compactItem {
                 if t.binding != nil { Button("Jump to Bound Page") { coordinator.jump(t) } }
                 Button("Mark as Done") { store.toggleDone(t.id) }

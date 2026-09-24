@@ -45,6 +45,15 @@ final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    /// The system keeps windows below the menu bar by default, so dragging to the top of the screen "sticks"; the floating panel may reach the top edge.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        guard let s = screen ?? self.screen ?? NSScreen.main else { return frameRect }
+        var f = frameRect
+        f.origin.y = min(f.origin.y, s.frame.maxY - f.height)
+        f.origin.y = max(f.origin.y, s.frame.minY)
+        return f
+    }
+
     /// When the panel is not the key window, AppKit spends the first click on "becoming key" instead of handing it to the hit view
     /// (under the list is an NSScrollView, which acceptsFirstMouse on the SwiftUI hosting view does not reach).
     /// So on mouse down become key first (a non-activating panel does not activate the whole app), then dispatch normally; the first click works.
@@ -73,9 +82,9 @@ final class FloatingPanel: NSPanel {
             applyChrome()
             minSize = NSSize(width: 60, height: 30)
             hosting.capsule = true
-            hosting.sizingOptions = [.preferredContentSize]
+            hosting.autoFit = true          // the window follows the content size (pill / card stack), top left corner fixed
         } else {
-            hosting.sizingOptions = []
+            hosting.autoFit = false
             hosting.capsule = false
             styleMask.insert(.resizable)
             applyChrome()
@@ -85,12 +94,13 @@ final class FloatingPanel: NSPanel {
             setFrame(NSRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height), display: true, animate: true)
         }
         DispatchQueue.main.async { [self] in
+            if compact { hosting.fitWindow() }
             // After the content size changes, put the top left corner back and stay on screen.
             var f = frame
             f.origin.y = topLeft.y - f.height
             f.origin.x = topLeft.x
             if let s = screen ?? NSScreen.main {
-                let v = s.visibleFrame
+                let v = s.frame
                 f.origin.x = min(max(f.origin.x, v.minX), v.maxX - f.width)
                 f.origin.y = min(max(f.origin.y, v.minY), v.maxY - f.height)
             }
@@ -103,8 +113,24 @@ final class FloatingPanel: NSPanel {
 /// When the panel is not the key window the first click also goes straight to SwiftUI instead of only making the window key;
 /// pressing on empty space (not a button / text field) drags the whole window (a borderless window has no title bar to drag).
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
-    /// Collapsed is a capsule (corner radius = half the height), expanded has 18pt corners.
+    /// Collapsed (no mask, the content draws its own shape); expanded gets an 18pt rounded mask.
     var capsule = false { didSet { needsLayout = true } }
+    /// Collapsed: the window is sized to the content. NSHostingView's own preferredContentSize does nothing here, so measure and set it ourselves.
+    var autoFit = false { didSet { needsLayout = true } }
+    private var fitting = false
+
+    /// Sizes the window to the content's ideal size, top left corner fixed.
+    func fitWindow() {
+        guard autoFit, let w = window, !fitting else { return }
+        let size = fittingSize
+        guard size.width > 1, size.height > 1,
+              abs(w.frame.width - size.width) > 0.5 || abs(w.frame.height - size.height) > 0.5 else { return }
+        fitting = true
+        let topLeft = NSPoint(x: w.frame.minX, y: w.frame.maxY)
+        w.setFrame(NSRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height), display: true)
+        w.invalidateShadow()
+        fitting = false
+    }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { true }
@@ -113,10 +139,12 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     /// so the rounded mask is applied on the layer, and the scroll view's own white background is switched off.
     override func layout() {
         super.layout()
+        fitWindow()
         wantsLayer = true
-        layer?.masksToBounds = true
+        // The rounded mask is only needed when expanded (clipping the square NSScrollView); collapsed, the pill / cards draw their own glass shapes and must not get another layer.
+        layer?.masksToBounds = !capsule
         layer?.cornerCurve = .continuous
-        layer?.cornerRadius = capsule ? bounds.height / 2 : 18
+        layer?.cornerRadius = capsule ? 0 : 18
         clearScrollBackgrounds(self)
     }
 

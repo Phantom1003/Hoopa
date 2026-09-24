@@ -1,14 +1,31 @@
 import AppKit
 import Combine
 
+/// The collapsed style.
+enum CompactStyle: String, CaseIterable, Identifiable {
+    case pill      // a pill: only the most urgent to-do
+    case stack     // a card stack: the most urgent on top, the rest behind it
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .pill: return "Pill"
+        case .stack: return "Card stack"
+        }
+    }
+}
+
 /// The bridge between the UI and the AppKit layer: binding, jumping, toasts, collapse / expand.
 final class AppCoordinator: ObservableObject {
     @Published var jumpingID: UUID?
     @Published var toast: String?
     @Published var isPicking = false
     @Published var alwaysOnTop = true
-    /// Collapse into the pill (only the most urgent to-do showing).
+    /// Collapsed (only the most urgent to-do showing).
     @Published var isCompact = false { didSet { if oldValue != isCompact { onCompactChanged?(isCompact) } } }
+    /// The collapsed style.
+    @Published var compactStyle: CompactStyle = CompactStyle(rawValue: UserDefaults.standard.string(forKey: "compactStyle") ?? "") ?? .pill {
+        didSet { UserDefaults.standard.set(compactStyle.rawValue, forKey: "compactStyle") }
+    }
     /// The binding and time "chosen but not yet created" in the composer.
     @Published var pendingBinding: ContextBinding?
     @Published var pendingDue: DueSpec?

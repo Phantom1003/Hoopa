@@ -37,12 +37,15 @@ final class TodoStore: ObservableObject {
         mutate(id) { $0.due = due }
     }
 
-    /// The to-do shown while collapsed: the timed one due soonest, otherwise the first in list order.
-    var compactItem: TodoItem? {
+    /// The order while collapsed: timed to-dos soonest first, the rest in list order.
+    var byUrgency: [TodoItem] {
         let act = active
         let timed = act.filter { $0.due != nil }.sorted { $0.due!.date < $1.due!.date }
-        return timed.first ?? act.first
+        return timed + act.filter { $0.due == nil }
     }
+
+    /// The to-do shown while collapsed.
+    var compactItem: TodoItem? { byUrgency.first }
 
     func toggleDone(_ id: UUID) {
         mutate(id) { item in
