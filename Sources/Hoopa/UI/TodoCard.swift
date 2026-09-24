@@ -41,10 +41,8 @@ struct TodoCard: View {
                             Button { showDue.toggle() } label: { Image(systemName: "timer") }
                                 .help("Timer / date")
                         }
-                        Button { coordinator.bind(todo) } label: {
-                            Image(systemName: todo.binding == nil ? "scope" : "arrow.triangle.2.circlepath")
-                        }
-                        .help(todo.binding == nil ? "Bind to a window / page" : "Rebind")
+                        Button { coordinator.bind(todo) } label: { Image(systemName: "scope") }
+                            .help(todo.binding == nil ? "Bind to a window / page" : "Rebind")
                         Button { store.delete(todo.id) } label: { Image(systemName: "trash") }
                             .help("Delete")
                     }
