@@ -75,6 +75,18 @@ final class TodoStore: ObservableObject {
         scheduleSave()
     }
 
+    /// Moves dragged before target (after = false) or after it.
+    func move(_ dragged: UUID, relativeTo target: UUID, after: Bool) {
+        var act = active
+        guard let from = act.firstIndex(where: { $0.id == dragged }) else { return }
+        let item = act.remove(at: from)
+        guard var to = act.firstIndex(where: { $0.id == target }) else { return }
+        if after { to += 1 }
+        act.insert(item, at: to)
+        todos = act + todos.filter { $0.isDone }
+        scheduleSave()
+    }
+
     func move(from source: IndexSet, to destination: Int) {
         var act = active
         act.move(fromOffsets: source, toOffset: destination)

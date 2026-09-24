@@ -99,6 +99,7 @@ struct ExpandedView: View {
                 }
                 ForEach(store.active) { todo in
                     TodoCard(todo: todo)
+                        .reorderable(todo.id, store: store)
                 }
                 if showDone && !store.done.isEmpty {
                     HStack {
@@ -116,6 +117,7 @@ struct ExpandedView: View {
             .padding(.vertical, 8)
         }
         .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
     }
 
     private var emptyState: some View {
@@ -147,4 +149,37 @@ struct ExpandedView: View {
                 .animation(.easeOut(duration: 0.2), value: coordinator.toast)
         }
     }
+}
+
+/// Drag to reorder: dropping on the upper half of another card inserts before it, on the lower half after it.
+private struct Reorderable: ViewModifier {
+    let id: UUID
+    let store: TodoStore
+    @State private var height: CGFloat = 60
+    @State private var targeted = false
+    @State private var insertAfter = false
+
+    func body(content: Content) -> some View {
+        content
+            .background(GeometryReader { g in Color.clear.onAppear { height = g.size.height }
+                .onChange(of: g.size.height) { _, h in height = h } })
+            .overlay(alignment: insertAfter ? .bottom : .top) {
+                if targeted {
+                    Capsule().fill(Style.accent).frame(height: 2).padding(.horizontal, 6)
+                }
+            }
+            .draggable(id.uuidString)
+            .dropDestination(for: String.self) { items, location in
+                guard let s = items.first, let dragged = UUID(uuidString: s), dragged != id else { return false }
+                store.move(dragged, relativeTo: id, after: location.y > height / 2)
+                return true
+            } isTargeted: { targeted = $0 }
+            .onContinuousHover { phase in
+                if case .active(let p) = phase, targeted { insertAfter = p.y > height / 2 }
+            }
+    }
+}
+
+extension View {
+    func reorderable(_ id: UUID, store: TodoStore) -> some View { modifier(Reorderable(id: id, store: store)) }
 }

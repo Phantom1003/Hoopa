@@ -153,6 +153,8 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
             sv.drawsBackground = false
             sv.backgroundColor = .clear
             sv.contentView.drawsBackground = false
+            sv.scrollerStyle = .overlay      // overlay scroller, takes no content width
+            sv.autohidesScrollers = true
         }
         v.subviews.forEach(clearScrollBackgrounds)
     }
