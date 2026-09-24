@@ -19,7 +19,7 @@ struct CompactPill: View {
                     if !title.isEmpty {
                         Text(title).lineLimit(1).truncationMode(.tail).frame(maxWidth: 220, alignment: .leading)
                     }
-                    if let d = t.due { DueChip(due: d) }
+                    if let d = t.due { DueChip(due: d, showDetail: false) }
                     if store.active.count > 1 {
                         Text("+\(store.active.count - 1)").font(.system(size: 11, weight: .semibold)).foregroundStyle(Style.secondary)
                     }

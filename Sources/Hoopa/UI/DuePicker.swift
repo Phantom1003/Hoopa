@@ -111,10 +111,9 @@ struct SpecChip: View {
             // Not ticking yet, but a due moment is projected as if submitted now (grey) and refreshes with the current time.
             TimelineView(.periodic(from: .now, by: 15)) { ctx in
                 HStack(spacing: 4) {
-                    Image(systemName: "timer").font(.system(size: 11))
-                    Text(TimeFormat.minutes(m))
+                    Text(TimeFormat.duration(m * 60)).monospacedDigit()
                     Text("·").foregroundStyle(Style.tertiary)
-                    Text(TimeFormat.clockTime(ctx.date.addingTimeInterval(TimeInterval(m * 60))))
+                    Text(TimeFormat.absolute(ctx.date.addingTimeInterval(TimeInterval(m * 60)), now: ctx.date))
                         .monospacedDigit().foregroundStyle(Style.secondary)
                 }
                 .foregroundStyle(Style.text)

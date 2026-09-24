@@ -1,13 +1,14 @@
 import SwiftUI
 
 /// The second collapsed style: a card stack. The most urgent to-do is in front, the cards behind show a sliver at the bottom;
-/// The scroll wheel or a click on a card behind brings it to the front. The front card: the done box, the binding chip (jump), the time chip, the content; ⌄ at the top right expands.
+/// the scroll wheel or a click on a card behind brings it to the front. The cards share the expanded to-do card's format: first row the done box, the binding chip (jump),
+/// the time chip and ⌄ expand at the top right; second row the content, one line even when empty.
 struct CompactStack: View {
     @EnvironmentObject var store: TodoStore
     @EnvironmentObject var coordinator: AppCoordinator
     @State private var front = 0
     @State private var scrollAccum: CGFloat = 0
-    private let width: CGFloat = 250
+    private let width: CGFloat = 276      // as wide as a to-do card in the narrowest expanded panel (300)
     private let peek: CGFloat = 9
     private let maxBehind = 2
 
@@ -68,10 +69,10 @@ struct CompactStack: View {
 
     private func card(_ t: TodoItem, isFront: Bool) -> some View {
         let title = t.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Button { store.toggleDone(t.id) } label: {
-                    Image(systemName: "circle").font(.system(size: 14)).foregroundStyle(Style.secondary)
+                    Image(systemName: "circle").font(.system(size: 16)).foregroundStyle(Style.secondary)
                 }
                 .buttonStyle(.plain)
                 .help("Mark as Done")
@@ -82,7 +83,7 @@ struct CompactStack: View {
                     .buttonStyle(.plain)
                     .help("Return to \(b.shortDescription)")
                 }
-                if let d = t.due { DueChip(due: d) }
+                if let d = t.due { DueChip(due: d, showDetail: false) }
                 Spacer(minLength: 0)
                 if isFront {
                     Button { coordinator.isCompact = false } label: {
@@ -93,17 +94,18 @@ struct CompactStack: View {
                     .help("Expand")
                 }
             }
-            if !title.isEmpty {
-                Text(title).font(.system(size: 13)).lineLimit(2).truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture { coordinator.isCompact = false }
-            }
+            // The insets match the composer inside the expanded card, so the text lines up.
+            Text(title.isEmpty ? " " : title).font(.system(size: 13)).lineLimit(2).truncationMode(.tail)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture { coordinator.isCompact = false }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.vertical, 10)
         .frame(width: width)
-        .glass(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .glass(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

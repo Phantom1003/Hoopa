@@ -40,12 +40,13 @@ struct BindingChip: View {
 /// No capsule background in bare mode.
 struct OptionalChip: ViewModifier {
     let enabled: Bool
+    var tint: Color = Style.chip
     func body(content: Content) -> some View {
-        if enabled { content.chip() } else { content.font(.system(size: 12, weight: .medium)).lineLimit(1) }
+        if enabled { content.chip(tint) } else { content.font(.system(size: 12, weight: .medium)).lineLimit(1) }
     }
 }
 
-/// The time chip: countdown (refreshed every second) or date.
+/// The time chip: countdown (refreshed every second) + absolute time, the same for timers and date-times.
 struct DueChip: View {
     let due: Due
     var showDetail = true
@@ -54,25 +55,23 @@ struct DueChip: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let l = TimeFormat.label(due, now: ctx.date)
-            HStack(spacing: 4) {
-                Image(systemName: due.isCountdown ? "timer" : "calendar").font(.system(size: 11))
+            let chip = HStack(spacing: 4) {
                 Text(l.text).monospacedDigit()
-                if showDetail, let d = l.detail {
-                    if due.isCountdown {
-                        // A countdown's due moment is derived: with a separator dot, in grey.
-                        Text("·").foregroundStyle(Style.tertiary)
-                        Text(d).monospacedDigit().foregroundStyle(Style.secondary)
-                    } else {
-                        // A date and its time are one thing: directly after, same colour.
-                        Text(d).monospacedDigit()
-                    }
+                if showDetail {
+                    // Countdown first, the absolute time after it: with a separator dot, in grey.
+                    Text("·").foregroundStyle(Style.tertiary)
+                    Text(l.detail).monospacedDigit().foregroundStyle(Style.secondary)
                 }
             }
             .lineLimit(1)
             .fixedSize()          // the time must never wrap to two lines
             .foregroundStyle(l.overdue ? Style.overdue : (l.urgent ? Style.urgent : Style.text))
-            .modifier(OptionalChip(enabled: !bare))
+            // The capsule tint follows the warning: orange when nearly due, red once overdue.
+            .modifier(OptionalChip(enabled: !bare, tint: l.overdue ? Style.overdue.opacity(0.2)
+                                                    : (l.urgent ? Style.urgent.opacity(0.15) : Style.chip)))
             .layoutPriority(1)
+            // When the absolute time is not shown (collapsed) hover shows it; when shown, no tooltip, so the outer button's tooltip is not covered.
+            if showDetail { chip } else { chip.help(l.detail) }
         }
     }
 }
