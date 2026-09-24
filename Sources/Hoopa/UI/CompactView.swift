@@ -147,17 +147,16 @@ struct CompactView: View {
         .frame(height: pillRadius * 2)
     }
 
-    /// The card: the same format as the expanded to-do card. First row the done box, the binding chip (jump), the time chip, and ⌄ expand at the top right of the front card;
-    /// second row the content, one line even when empty.
+    /// The card: the first row starts with ⌄ expand (at the same spot as the expanded panel's collapse button, see CompactToggle), then the binding chip (jump) and the time chip;
+    /// the second row is like Reminders: the done box right next to the content, in the same column as ⌄. An empty content still keeps one line.
     private func cardContent(_ t: TodoItem, isFront: Bool) -> some View {
         let title = t.title.trimmingCharacters(in: .whitespacesAndNewlines)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Button { store.toggleDone(t.id) } label: {
-                    Image(systemName: "circle").font(.system(size: 16)).foregroundStyle(Style.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Mark as done")
+                // Only the front card is clickable; the cards behind keep the slot too, so the layout does not jump when one comes to the front.
+                CompactToggle(collapse: false)
+                    .opacity(isFront ? 1 : 0)
+                    .allowsHitTesting(isFront)
                 if let b = t.binding {
                     Button { coordinator.jump(t) } label: {
                         BindingChip(binding: b, jumping: coordinator.jumpingID == t.id)
@@ -167,22 +166,20 @@ struct CompactView: View {
                 }
                 if let d = t.due { DueChip(due: d, showDetail: false) }
                 Spacer(minLength: 0)
-                if isFront {
-                    Button { coordinator.isCompact = false } label: {
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Style.secondary).frame(width: 16, height: 18).contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Expand")
-                }
             }
-            // The insets match the composer inside the expanded card, so the text lines up.
-            Text(title.isEmpty ? " " : title).font(.system(size: 13)).lineLimit(2).truncationMode(.tail)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-                .onTapGesture { coordinator.isCompact = false }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Button { store.toggleDone(t.id) } label: {
+                    // As wide as ⌄, so the two buttons line up vertically.
+                    Image(systemName: "circle").font(.system(size: 16)).foregroundStyle(Style.secondary).frame(width: 16)
+                }
+                .buttonStyle(.plain)
+                .help("Mark as done")
+                Text(title.isEmpty ? " " : title).font(.system(size: 13)).lineLimit(2).truncationMode(.tail)
+                    .padding(.vertical, 1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { coordinator.isCompact = false }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

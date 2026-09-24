@@ -107,11 +107,7 @@ struct ExpandedView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Button { coordinator.isCompact = true } label: {
-                Image(systemName: "chevron.up.circle.fill").font(.system(size: 15)).foregroundStyle(Style.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Collapse")
+            CompactToggle(collapse: true)
             Text("Hoopa").font(.system(size: 13, weight: .semibold)).foregroundStyle(Style.text)
             Spacer()
             if !store.active.isEmpty {
@@ -140,6 +136,7 @@ struct ExpandedView: View {
             .menuIndicator(.hidden)
             .fixedSize()
         }
+        // The left and top insets match the collapsed card: the collapse button lands exactly where the card's expand button is (see CompactToggle).
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 8)
@@ -217,6 +214,23 @@ struct ExpandedView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.easeOut(duration: 0.2), value: coordinator.toast)
         }
+    }
+}
+
+/// The collapse / expand button: "collapse" (arrow up) is leftmost in the expanded panel's title bar, "expand" (arrow down) leftmost in the collapsed card's first row.
+/// The window's top left corner does not move when switching, both sit at the top left with the same insets, so they land on the same spot: after a click the same button is still under the mouse, repeated clicks only toggle,
+/// never hitting the done box or another button. As tall as a chip (25), so its row is the same height in both shapes and the button sits at the same vertical position.
+struct CompactToggle: View {
+    let collapse: Bool
+    @EnvironmentObject var coordinator: AppCoordinator
+
+    var body: some View {
+        Button { coordinator.isCompact = collapse } label: {
+            Image(systemName: collapse ? "chevron.up" : "chevron.down").font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Style.secondary).frame(width: 16, height: 25).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(collapse ? "Collapse" : "Expand")
     }
 }
 
