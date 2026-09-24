@@ -20,18 +20,19 @@ enum Motion {
     static let step = Animation.smooth(duration: 0.3)
     static let stepGap: TimeInterval = 0.28
     static let stepBusy: TimeInterval = 0.4
-    /// Expand: the plate grows from the front card to the whole panel (the card content fades out meanwhile), the panel content appears once it has grown.
+    /// Expand: the plate grows from the front card to the whole panel, the panel content is there from the start and is uncovered by the growing glass; the card fades out meanwhile.
     static let plateIn = Animation.easeOut(duration: 0.1)
     static let panelGrow = Animation.smooth(duration: 0.36)
-    static let compactOut = Animation.easeOut(duration: 0.15)
-    static let panelContentIn = Animation.easeOut(duration: 0.2).delay(0.32)
-    static let expandBusy: TimeInterval = 0.55
-    /// Collapse: the panel content fades out first, the plate shrinks back to the card's rect, the card appears with it and the plate gives way to the card's own glass.
-    static let panelContentOut = Animation.easeOut(duration: 0.12)
-    static let panelShrink = Animation.smooth(duration: 0.32).delay(0.1)
-    static let compactIn = Animation.easeOut(duration: 0.15).delay(0.36)
-    static let plateOut = Animation.easeIn(duration: 0.1).delay(0.4)
-    static let collapseBusy: TimeInterval = 0.6
+    static let compactOut = Animation.easeOut(duration: 0.12)
+    static let panelContentIn = Animation.easeOut(duration: 0.15)
+    static let expandBusy: TimeInterval = 0.5
+    /// Collapse: the plate shrinks back to the card's rect, covering the panel content while it fades out; then the card appears and the plate gives way to the card's own glass.
+    static let panelShrink = Animation.smooth(duration: 0.32)
+    static let panelContentOut = Animation.easeIn(duration: 0.28)
+    static let compactIn = Animation.easeOut(duration: 0.15).delay(0.26)
+    static let plateOut = Animation.easeIn(duration: 0.1).delay(0.3)
+    static let parkAfter: TimeInterval = 0.4      // move out of the window only after the panel content has faded and the plate has shrunk
+    static let collapseBusy: TimeInterval = 0.55
 }
 
 /// A small capsule chip.

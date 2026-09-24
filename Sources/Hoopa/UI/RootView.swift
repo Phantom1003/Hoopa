@@ -36,10 +36,14 @@ struct RootView: View {
                         .transition(.asymmetric(insertion: .opacity.animation(Motion.compactIn),
                                                 removal: .opacity.animation(Motion.compactOut)))
                 }
-                // The layout size matches the plate and animates with it: the ZStack's size never jumps (a jump would be treated by SwiftUI as a geometry animation about the centre and drag the plate off).
-                // The content spreads at its own minimum size; whatever sticks out is hidden by the timing of the fades.
+                // The panel content is laid out at its final size (not re-laid out as the plate grows); its layout placeholder matches the plate and animates with it
+                // (the ZStack's size never jumps; a jump would be treated by SwiftUI as a geometry animation about the centre and drag the plate off),
+                // then it is clipped to the plate: expanding, the content is uncovered by the growing glass; collapsing, it is covered again, and the panel is never empty.
+                // clipShape also applies to the AppKit-hosted list / text fields (clipped to the rect).
                 ExpandedView()
+                    .frame(width: coordinator.panelSize.width, height: coordinator.panelSize.height, alignment: .topLeading)
                     .frame(width: plate.rect.width, height: plate.rect.height, alignment: .topLeading)
+                    .clipShape(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
                     .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
                                value: PlateKey(expanded: expanded, front: expanded ? nil : front))
                     .offset(x: parked ? -4000 : 0)
@@ -54,8 +58,8 @@ struct RootView: View {
         .onPreferenceChange(CompactSizesKey.self) { coordinator.compactSizes = $0 }
         .onChange(of: coordinator.isCompact) { _, compact in
             if compact {
-                // Move away only after the panel content has faded out.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { if coordinator.isCompact { parked = true } }
+                // Move away only after the panel content has faded out and the plate has shrunk back.
+                DispatchQueue.main.asyncAfter(deadline: .now() + Motion.parkAfter) { if coordinator.isCompact { parked = true } }
             } else {
                 parked = false
             }
