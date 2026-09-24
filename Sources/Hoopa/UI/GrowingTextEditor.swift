@@ -3,7 +3,7 @@ import SwiftUI
 /// A multi-line field that grows with its content: Return inserts a newline, ⌘Return submits.
 struct GrowingTextEditor: View {
     @Binding var text: String
-    var placeholder: String
+    var placeholder: LocalizedStringKey
     var font: Font = .system(size: 13)
     var maxHeight: CGFloat = 140
     var onCommit: () -> Void

@@ -22,11 +22,11 @@ enum Notifier {
         let content = UNMutableNotificationContent()
         content.title = t.title
         switch due {
-        case .countdown: content.body = "Countdown finished"
-        case .date: content.body = "Due today"
-        case .dateTime: content.body = "Time's up"
+        case .countdown: content.body = String(localized: "Timer finished")
+        case .date: content.body = String(localized: "Due today")
+        case .dateTime: content.body = String(localized: "Time's up")
         }
-        if let b = t.binding { content.body += " · Click to return to \(b.shortDescription)" }
+        if let b = t.binding { content.body += " · " + String(localized: "Click to go back to \(b.shortDescription)") }
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(due.notifyAt.timeIntervalSinceNow, 1), repeats: false)
         center.add(UNNotificationRequest(identifier: t.id.uuidString, content: content, trigger: trigger)) { err in

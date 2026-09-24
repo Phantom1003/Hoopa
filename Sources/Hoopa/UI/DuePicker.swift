@@ -6,7 +6,10 @@ struct DuePicker: View {
     @Binding var spec: DueSpec?
     var onDone: () -> Void
 
-    private enum Tab: String, CaseIterable { case countdown = "Countdown", dateTime = "Date & time" }
+    private enum Tab: CaseIterable {
+        case countdown, dateTime
+        var title: LocalizedStringKey { self == .countdown ? "Timer" : "Date & Time" }
+    }
     @State private var tab: Tab = .countdown
     @State private var minutes = 25
     @State private var day = Calendar.current.startOfDay(for: Date())
@@ -18,7 +21,7 @@ struct DuePicker: View {
     var body: some View {
         VStack(spacing: 10) {
             Picker("", selection: $tab) {
-                ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(Tab.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -34,12 +37,13 @@ struct DuePicker: View {
                 }
             } else {
                 HStack(spacing: 6) {
+                    // Today / tomorrow / the day after: the interface language's relative words (English has no word for the day after and shows the date).
                     ForEach(0..<3, id: \.self) { i in
-                        Button(["Today", "Tomorrow", "Day after"][i]) { setDay(i) }
+                        Button(TimeFormat.day(offsetDay(i), now: Date())) { setDay(i) }
                             .glassButton(prominent: isDay(i)).controlSize(.small).fixedSize()
                     }
                     Spacer()
-                    // Other days: open the calendar. The text uses a fixed month-day format at a fixed width, so it does not jitter when the day changes.
+                    // Other days: open the calendar. The text uses the month-day format (Sep 25 or the localized form) at a fixed width, so it does not jitter when the day changes.
                     Button { showCalendar = true } label: {
                         Label(TimeFormat.monthDay(day), systemImage: "calendar")
                             .monospacedDigit()
@@ -92,9 +96,11 @@ struct DuePicker: View {
         onDone()
     }
 
-    private func setDay(_ offset: Int) {
-        day = Calendar.current.date(byAdding: .day, value: offset, to: Calendar.current.startOfDay(for: Date()))!
+    private func offsetDay(_ offset: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: offset, to: Calendar.current.startOfDay(for: Date()))!
     }
+
+    private func setDay(_ offset: Int) { day = offsetDay(offset) }
 
     private func isDay(_ offset: Int) -> Bool {
         Calendar.current.isDate(day, inSameDayAs: Calendar.current.date(byAdding: .day, value: offset, to: Date())!)

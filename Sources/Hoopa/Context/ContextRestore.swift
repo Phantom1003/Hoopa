@@ -10,11 +10,11 @@ enum RestoreOutcome: Int, Comparable {
 
     var message: String {
         switch self {
-        case .exact: return "Jumped"
-        case .reopened: return "The page was closed and has been reopened"
-        case .unverified: return "Target triggered, but the page change could not be confirmed"
-        case .windowOnly: return "Switched to the window, target not found"
-        case .appOnly: return "App activated, but that window was not found"
+        case .exact: return String(localized: "Jumped back")
+        case .reopened: return String(localized: "The page was closed and has been reopened")
+        case .unverified: return String(localized: "Triggered the target, but couldn't confirm the page switched")
+        case .windowOnly: return String(localized: "Switched to the window, but couldn't find the exact target")
+        case .appOnly: return String(localized: "Activated the app, but couldn't find that window")
         }
     }
 
@@ -28,9 +28,9 @@ enum RestoreError: Error {
 
     var message: String {
         switch self {
-        case .appNotFound: return "App not found, it may have been deleted"
-        case .launchFailed: return "The app failed to launch"
-        case .noAccessibility: return "No Accessibility permission, windows cannot be located"
+        case .appNotFound: return String(localized: "Can't find the app; it may have been deleted")
+        case .launchFailed: return String(localized: "The app failed to launch")
+        case .noAccessibility: return String(localized: "Accessibility access is missing, so the window can't be located")
         }
     }
 }

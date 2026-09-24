@@ -17,6 +17,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Hoopa "$APP/Contents/MacOS/Hoopa"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp -R Resources/*.lproj "$APP/Contents/Resources/"    # the interface translations
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 # Signing identity: SIGN_IDENTITY from the environment, otherwise the first valid Apple Development certificate in the keychain,
 # otherwise ad hoc ("-"). Signed with a real certificate, the Accessibility grant survives rebuilds.

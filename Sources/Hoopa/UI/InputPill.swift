@@ -17,7 +17,7 @@ struct InputPill: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            GrowingTextEditor(text: $title, placeholder: "Add a to-do… (⌘Return submits)", onCommit: submit, focused: $focused)
+            GrowingTextEditor(text: $title, placeholder: "Add a to-do… (⌘Return to add)", onCommit: submit, focused: $focused)
 
             HStack(spacing: 6) {
                 bindChip
@@ -55,16 +55,16 @@ struct InputPill: View {
             if let b = coordinator.pendingBinding {
                 selectedChip(clear: { coordinator.pendingBinding = nil },
                              reselect: { coordinator.pickPendingBinding() },
-                             help: "Will be bound to: \(b.detailDescription)\nClick to choose again") {
+                             help: String(localized: "Will bind to:\n\(b.detailDescription)\nClick to choose again")) {
                     BindingChip(binding: b, showArrow: false, bare: true)
                 }
             } else {
                 Button { coordinator.pickPendingBinding() } label: {
-                    Label("Bind window / page", systemImage: "scope").foregroundStyle(Style.secondary)
+                    Label("Bind Window / Page", systemImage: "scope").foregroundStyle(Style.secondary)
                 }
                 .buttonStyle(.plain)
                 .chip()
-                .help("Choose the window / page to bind first, then type the content")
+                .help("Pick the window / page to bind, then type the to-do")
             }
         }
     }
@@ -74,12 +74,12 @@ struct InputPill: View {
             if let sp = coordinator.pendingDue {
                 selectedChip(clear: { coordinator.pendingDue = nil },
                              reselect: { showDue.toggle() },
-                             help: "Click to choose again") {
+                             help: String(localized: "Click to choose again")) {
                     SpecChip(spec: sp, bare: true)
                 }
             } else {
                 Button { showDue.toggle() } label: {
-                    Label("Countdown / time", systemImage: "timer").foregroundStyle(Style.secondary)
+                    Label("Timer / Date", systemImage: "timer").foregroundStyle(Style.secondary)
                 }
                 .buttonStyle(.plain)
                 .chip()

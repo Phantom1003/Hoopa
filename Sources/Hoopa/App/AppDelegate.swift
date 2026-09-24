@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             .environmentObject(store)
             .environmentObject(permissions)
             .environmentObject(coordinator)
+            .environment(\.locale, AppLanguage.locale)   // plural rules and the like follow the interface language, not the system region
         let hosting = FirstMouseHostingView(rootView: AnyView(root))
         panel = FloatingPanel(contentView: hosting)
         UNUserNotificationCenter.current().delegate = self
@@ -76,10 +77,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     @objc private func statusItemClicked() {
         if let event = NSApp.currentEvent, event.type == .rightMouseUp {
             let menu = NSMenu()
-            menu.addItem(withTitle: panel.isVisible ? "Hide Panel" : "Show Panel", action: #selector(togglePanel), keyEquivalent: "")
-            menu.addItem(withTitle: coordinator.isCompact ? "Expand" : "Collapse into Pill", action: #selector(toggleCompact), keyEquivalent: "")
+            menu.addItem(withTitle: panel.isVisible ? String(localized: "Hide Panel") : String(localized: "Show Panel"), action: #selector(togglePanel), keyEquivalent: "")
+            menu.addItem(withTitle: coordinator.isCompact ? String(localized: "Expand") : String(localized: "Collapse"), action: #selector(toggleCompact), keyEquivalent: "")
             menu.addItem(.separator())
-            menu.addItem(withTitle: "Quit Hoopa", action: #selector(quit), keyEquivalent: "q")
+            menu.addItem(withTitle: String(localized: "Quit Hoopa"), action: #selector(quit), keyEquivalent: "q")
             menu.items.forEach { $0.target = self }
             statusItem.menu = menu
             statusItem.button?.performClick(nil)
@@ -127,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard AX.isTrusted else {
             Log.write("Pick aborted: Accessibility not granted")
             permissions.request()
-            coordinator.showToast("Grant the Accessibility permission first")
+            coordinator.showToast(String(localized: "Please grant Accessibility access first"))
             return
         }
         coordinator.isPicking = true
@@ -136,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         picker = p
         p.onWillCapture = { [weak self] in
             self?.panel.show()
-            self?.coordinator.showToast("Reading page info…", seconds: 15)
+            self?.coordinator.showToast(String(localized: "Reading page info…"), seconds: 15)
         }
         p.begin { [weak self] binding in
             guard let self else { return }
@@ -150,7 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 } else {
                     self.coordinator.pendingBinding = binding
                 }
-                self.coordinator.showToast("Bound: \(binding.shortDescription)")
+                self.coordinator.showToast(String(localized: "Bound: \(binding.shortDescription)"))
             } else {
                 self.coordinator.toast = nil
             }

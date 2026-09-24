@@ -10,6 +10,11 @@ struct CalendarGrid: View {
     @State private var shownMonth: Date = Date()
     @State private var yearPageStart = 0
     private let cal = Calendar.current
+    /// Month and weekday names follow the interface language; the first day of the week still follows the system (cal).
+    private let names: Calendar = { var c = Calendar.current; c.locale = AppLanguage.locale; return c }()
+    private let yearFormat: DateFormatter = {
+        let f = DateFormatter(); f.locale = AppLanguage.locale; f.setLocalizedDateFormatFromTemplate("y"); return f
+    }()
     private let cell: CGFloat = 28
     private let gridHeight: CGFloat = 6 * 30      // the height of 6 rows of days, shared by all three modes so the window does not change
 
@@ -42,11 +47,11 @@ struct CalendarGrid: View {
             Button { page(-1) } label: { Image(systemName: "chevron.left") }
                 .glassButton().controlSize(.mini)
             Spacer()
-            // String(...) on purpose: SwiftUI's Text interpolation adds a thousands separator to numbers (2,026).
-            Button(String(shownYear)) { toggle(.years) }
+            // The year goes through a date format (localized, "2026" in English), not Text interpolation: that would add a thousands separator (2,026).
+            Button(yearFormat.string(from: shownMonth)) { toggle(.years) }
                 .buttonStyle(.plain).monospacedDigit()
                 .foregroundStyle(mode == .years ? Style.accent : Color.primary)
-            Button(String(shownMonthNumber)) { toggle(.months) }
+            Button(names.shortStandaloneMonthSymbols[shownMonthNumber - 1]) { toggle(.months) }
                 .buttonStyle(.plain).monospacedDigit()
                 .foregroundStyle(mode == .months ? Style.accent : Color.primary)
             Spacer()
@@ -74,7 +79,7 @@ struct CalendarGrid: View {
     // MARK: Days
 
     private var weekdays: some View {
-        let symbols = cal.veryShortStandaloneWeekdaySymbols   // the system's first weekday
+        let symbols = names.veryShortStandaloneWeekdaySymbols   // starts on Sunday; rotated below to the system's first weekday
         let start = cal.firstWeekday - 1
         return HStack(spacing: 0) {
             ForEach(0..<7, id: \.self) { i in
@@ -135,7 +140,7 @@ struct CalendarGrid: View {
     private var months: some View {
         let now = cal.component(.month, from: Date())
         let sameYear = shownYear == cal.component(.year, from: Date())
-        return grid(items: Array(1...12), label: { String($0) },
+        return grid(items: Array(1...12), label: { names.shortStandaloneMonthSymbols[$0 - 1] },
                     selected: shownMonthNumber, today: sameYear ? now : nil) { m in
             set(month: m); mode = .days
         }

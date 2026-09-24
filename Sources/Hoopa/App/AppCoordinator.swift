@@ -8,8 +8,8 @@ enum CompactStyle: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .pill: return "Pill"
-        case .stack: return "Card stack"
+        case .pill: return String(localized: "Pill")
+        case .stack: return String(localized: "Card Stack")
         }
     }
 }

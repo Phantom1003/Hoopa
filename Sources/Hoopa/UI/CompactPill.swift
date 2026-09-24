@@ -11,7 +11,7 @@ struct CompactPill: View {
                 if let b = t.binding {
                     Button { coordinator.jump(t) } label: { BindingChip(binding: b, jumping: coordinator.jumpingID == t.id, compact: true) }
                         .buttonStyle(.plain)
-                        .help("Return to \(b.shortDescription)")
+                        .help("Back to \(b.shortDescription)")
                 }
                 // The title area is not a button: a button would swallow the press and the pill could not be dragged. Tap to expand, press and hold to drag.
                 HStack(spacing: 6) {
@@ -26,7 +26,7 @@ struct CompactPill: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { coordinator.isCompact = false }
-                .help("Tap to expand, press to drag")
+                .help("Click to expand, drag to move")
                 expandButton
             } else {
                 Button { coordinator.isCompact = false } label: {

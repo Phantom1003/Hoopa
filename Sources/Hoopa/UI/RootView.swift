@@ -43,7 +43,7 @@ struct ExpandedView: View {
                 Image(systemName: "chevron.up.circle.fill").font(.system(size: 15)).foregroundStyle(Style.secondary)
             }
             .buttonStyle(.plain)
-            .help("Collapse into Pill")
+            .help("Collapse")
             Text("Hoopa").font(.system(size: 13, weight: .semibold)).foregroundStyle(Style.text)
             Spacer()
             if !store.active.isEmpty {
@@ -57,12 +57,16 @@ struct ExpandedView: View {
                 Picker("Collapsed Style", selection: $coordinator.compactStyle) {
                     ForEach(CompactStyle.allCases) { Text($0.label).tag($0) }
                 }
+                // Switching the language relaunches the app. Language names are not translated.
+                Picker("Language", selection: Binding(get: { AppLanguage.current }, set: { AppLanguage.switchTo($0) })) {
+                    ForEach(AppLanguage.allCases) { Text(verbatim: $0.name).tag($0) }
+                }
                 Divider()
-                Button(permissions.accessibility ? "Accessibility: Granted" : "Grant Accessibility Permission…") { permissions.request() }
+                Button(permissions.accessibility ? "Accessibility Access: Granted" : "Grant Accessibility Access…") { permissions.request() }
                     .disabled(permissions.accessibility)
                 Button("Clear Completed") { store.clearDone() }.disabled(store.done.isEmpty)
                 Divider()
-                Text("Shortcut ⌃⌥T shows / hides the panel")
+                Text("Press ⌃⌥T to show / hide the panel")
                 Button("Quit Hoopa") { coordinator.onQuit?() }
             } label: {
                 Image(systemName: "ellipsis.circle").foregroundStyle(Style.secondary)
@@ -81,7 +85,7 @@ struct ExpandedView: View {
     private var permissionBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Text("The Accessibility permission is needed to recognise windows and jump").font(.caption).foregroundStyle(Style.text)
+            Text("Accessibility access is needed to detect windows and jump back").font(.caption).foregroundStyle(Style.text)
             Spacer()
             Button("Grant") { permissions.request() }.controlSize(.small)
         }
@@ -124,7 +128,7 @@ struct ExpandedView: View {
         VStack(spacing: 8) {
             Image(systemName: "scope").font(.system(size: 28)).foregroundStyle(Style.secondary)
             Text("No to-dos yet").font(.subheadline).foregroundStyle(Style.secondary)
-            Text("Click ⌖ to choose the window / page to bind, ◔ to set a countdown or date, then type the content and press Return.\nAfter that one click on the chip takes you straight back to that page.")
+            Text("Pick a window / page with ⌖ and set a timer or date with ◔, then type and press ⌘Return.\nLater, click the chip to jump straight back to that page.")
                 .font(.caption).foregroundStyle(Style.tertiary)
                 .multilineTextAlignment(.center)
         }

@@ -36,6 +36,7 @@ After the first launch:
 | Rename | Double-click the to-do |
 | Rebind / unbind / delete | Context menu |
 | Keep the panel on top, show completed | The ⋯ menu at the top right |
+| Interface language | The ⋯ menu at the top right → Language (English by default, does not follow the system; switching relaunches the app) |
 
 ## How a binding "remembers" a page
 
@@ -80,6 +81,7 @@ Sources/Hoopa/
   App/AppDelegate.swift      Menu bar icon, floating panel, shortcut, bind / jump flow
   App/FloatingPanel.swift    Non-activating floating panel: hovering / a click works right away without activating the app
   App/AppCoordinator.swift   UI ↔ AppKit bridge, permission state
+  App/AppLanguage.swift      Interface language (English by default, stored in the app's own AppleLanguages)
   Models/Models.swift        TodoItem / ContextBinding
   Store/TodoStore.swift      JSON persistence (~/Library/Application Support/Hoopa/todos.json)
   Picker/WindowPicker.swift  Full-screen pick overlay: highlights windows / elements, click to confirm
@@ -94,6 +96,9 @@ Sources/Hoopa/
   AX/WindowList.swift        CGWindowList hit testing, coordinate conversion
   AX/TitleMatch.swift        Fuzzy title matching
   UI/                        SwiftUI panel views
+Resources/
+  zh-Hans.lproj/             Simplified Chinese translation: the keys are the English strings in the code
+  en.lproj/                  English plural rules (Localizable.stringsdict)
 ```
 
 ## Diagnostics

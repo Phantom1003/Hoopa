@@ -8,6 +8,8 @@ if let i = args.firstIndex(of: "--dump-ax"), i + 1 < args.count {
     exit(0)
 }
 
+AppLanguage.applyDefault()
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

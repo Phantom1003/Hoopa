@@ -1,0 +1,114 @@
+/* 简体中文界面文字。键是代码里的英文原文（英文是默认语言，没有翻译的就显示英文）。 */
+
+/* 面板 */
+"Collapse" = "收起";
+"%lld items" = "%lld 项";
+"Keep Panel on Top" = "面板置顶";
+"Show Completed" = "显示已完成";
+"Collapsed Style" = "收起样式";
+"Language" = "语言";
+"Accessibility Access: Granted" = "辅助功能权限：已授予";
+"Grant Accessibility Access…" = "授予辅助功能权限…";
+"Clear Completed" = "清除已完成";
+"Press ⌃⌥T to show / hide the panel" = "快捷键 ⌃⌥T 显示 / 隐藏面板";
+"Quit Hoopa" = "退出 Hoopa";
+"Accessibility access is needed to detect windows and jump back" = "需要“辅助功能”权限才能识别窗口和跳转";
+"Grant" = "授权";
+"Completed · %lld" = "已完成 · %lld";
+"No to-dos yet" = "还没有待办";
+"Pick a window / page with ⌖ and set a timer or date with ◔, then type and press ⌘Return.\nLater, click the chip to jump straight back to that page." = "先点 ⌖ 选好要绑定的窗口 / 页面、点 ◔ 设倒计时或日期，再输入内容按 ⌘回车。\n之后点一下芯片就能直接回到那个页面。";
+
+/* 收起样式 */
+"Pill" = "药丸";
+"Card Stack" = "卡片堆叠";
+"Expand" = "展开";
+"Back to %@" = "回到 %@";
+"Click to expand, drag to move" = "轻点展开，按住拖动";
+"Add a to-do" = "添加待办";
+"Bring to front" = "翻到前面";
+
+/* 新建待办 */
+"Add a to-do… (⌘Return to add)" = "添加待办…（⌘回车提交）";
+"Add (⌘Return)" = "添加（⌘回车）";
+"Will bind to:\n%@\nClick to choose again" = "将绑定到：%@\n点击重新选择";
+"Bind Window / Page" = "绑定窗口 / 页面";
+"Pick the window / page to bind, then type the to-do" = "先选好要绑定的窗口 / 页面，再输入内容";
+"Click to choose again" = "点击重新选择";
+"Timer / Date" = "倒计时 / 时间";
+"Clear" = "清除";
+
+/* 待办卡片 */
+"Change time" = "修改时间";
+"Timer / date" = "倒计时 / 时间";
+"Bind to a window / page" = "绑定到窗口 / 页面";
+"Rebind" = "重新绑定";
+"Delete" = "删除";
+"To-do" = "待办内容";
+"Jump to Bound Page" = "跳转到绑定页面";
+"Rebind…" = "重新绑定…";
+"Unbind" = "解除绑定";
+"Bind to Window / Page…" = "绑定到窗口 / 页面…";
+"Timer / Date…" = "倒计时 / 时间…";
+"Remove Time" = "删除时间";
+"Mark as Done" = "标记为完成";
+"Mark as done" = "标记为完成";
+"Mark as Not Done" = "标记为未完成";
+
+/* 时间面板 */
+"Timer" = "倒计时";
+"Date & Time" = "日期时间";
+"Cancel" = "取消";
+"Set %lld min" = "选用 %lld min";
+"Set %@ %@" = "选用 %@ %@";
+
+/* 菜单栏、提示 */
+"Hide Panel" = "隐藏面板";
+"Show Panel" = "显示面板";
+"Please grant Accessibility access first" = "请先授予辅助功能权限";
+"Reading page info…" = "正在读取页面信息…";
+"Bound: %@" = "已绑定：%@";
+
+/* 通知 */
+"Timer finished" = "倒计时结束";
+"Due today" = "今天到期";
+"Time's up" = "到时间了";
+"Click to go back to %@" = "点击回到 %@";
+
+/* 跳转结果 */
+"Jumped back" = "已跳转";
+"The page was closed and has been reopened" = "页面已关闭，已重新打开";
+"Triggered the target, but couldn't confirm the page switched" = "已触发目标，但未能确认页面已切换";
+"Switched to the window, but couldn't find the exact target" = "已切到窗口，未找到具体目标";
+"Activated the app, but couldn't find that window" = "已激活应用，但没找到那个窗口";
+"Can't find the app; it may have been deleted" = "找不到该应用，可能已被删除";
+"The app failed to launch" = "应用启动失败";
+"Accessibility access is missing, so the window can't be located" = "缺少辅助功能权限，无法定位窗口";
+
+/* 绑定信息 */
+"(Untitled window)" = "（无标题窗口）";
+"(Untitled)" = "（无标题）";
+"App: %@" = "应用：%@";
+"Window: %@" = "窗口：%@";
+"Tab: %@" = "标签页：%@";
+"Document: %@" = "文档：%@";
+"Link: %@" = "链接：%@";
+"Element: %@ %@" = "元素：%@ %@";
+
+/* 拾取窗口 / 元素 */
+"This app exposes no accessible UI elements; only the whole window can be bound" = "此应用没有提供可访问的界面元素，只能绑定整个窗口";
+"%@: %@" = "%@：%@";
+"(no text)" = "（无文字）";
+"Element mode: click to bind the highlighted tab / sidebar item / button" = "元素模式：点击绑定高亮的标签页 / 侧栏项 / 按钮";
+"Release ⌥ to return to window mode · Esc to cancel" = "松开 ⌥ 回到窗口模式 · Esc 取消";
+"Move the mouse to highlight a window, click to bind it" = "移动鼠标高亮窗口，点击绑定到该窗口";
+"Hold ⌥ to pick a tab / sidebar item inside the window · Esc to cancel" = "按住 ⌥ 可进一步选择窗口内的标签页 / 侧栏项 · Esc 取消";
+"Tab" = "标签页";
+"Tab / Option" = "标签/选项";
+"Button" = "按钮";
+"Row" = "列表行";
+"Cell" = "单元格";
+"Link" = "链接";
+"Menu Item" = "菜单项";
+"Text" = "文本";
+"Image" = "图片";
+"Element" = "元素";

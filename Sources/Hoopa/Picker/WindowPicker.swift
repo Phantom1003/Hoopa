@@ -184,7 +184,7 @@ final class OverlayView: NSView {
                 if r.intersects(bounds) {
                     drawHighlight(r, color: .systemOrange, strong: true, fill: true)
                     let roleName = friendlyRole(t.elementRole, t.elementSubrole)
-                    drawLabel("\(roleName): \(t.elementLabel ?? "(no text)")", near: r, color: .systemOrange, below: true)
+                    drawLabel(String(localized: "\(roleName): \(t.elementLabel ?? String(localized: "(no text)"))"), near: r, color: .systemOrange, below: true)
                 }
             }
         }
@@ -224,8 +224,10 @@ final class OverlayView: NSView {
 
     private func drawHUD() {
         let lines: [String] = elementMode
-            ? ["Element mode: click to bind the highlighted tab / sidebar item / button", "Release ⌥ for window mode · Esc cancels"]
-            : ["Move the mouse to highlight a window, click to bind it", "Hold ⌥ to pick a tab / sidebar item inside the window · Esc cancels"]
+            ? [String(localized: "Element mode: click to bind the highlighted tab / sidebar item / button"),
+               String(localized: "Release ⌥ to return to window mode · Esc to cancel")]
+            : [String(localized: "Move the mouse to highlight a window, click to bind it"),
+               String(localized: "Hold ⌥ to pick a tab / sidebar item inside the window · Esc to cancel")]
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
             .foregroundColor: NSColor.white,
@@ -241,18 +243,18 @@ final class OverlayView: NSView {
     }
 
     private func friendlyRole(_ role: String?, _ subrole: String?) -> String {
-        if subrole == "AXTabButton" { return "Tab" }
+        if subrole == "AXTabButton" { return String(localized: "Tab") }
         switch role {
-        case kAXRadioButtonRole: return "Tab/option"
-        case kAXButtonRole: return "Button"
-        case kAXRowRole: return "Row"
-        case kAXCellRole: return "Cell"
-        case "AXLink": return "Link"
-        case kAXMenuItemRole: return "Menu item"
-        case kAXStaticTextRole: return "Text"
-        case kAXImageRole: return "Image"
-        case "AXTab": return "Tab"
-        default: return role?.replacingOccurrences(of: "AX", with: "") ?? "Element"
+        case kAXRadioButtonRole: return String(localized: "Tab / Option")
+        case kAXButtonRole: return String(localized: "Button")
+        case kAXRowRole: return String(localized: "Row")
+        case kAXCellRole: return String(localized: "Cell")
+        case "AXLink": return String(localized: "Link")
+        case kAXMenuItemRole: return String(localized: "Menu Item")
+        case kAXStaticTextRole: return String(localized: "Text")
+        case kAXImageRole: return String(localized: "Image")
+        case "AXTab": return String(localized: "Tab")
+        default: return role?.replacingOccurrences(of: "AX", with: "") ?? String(localized: "Element")
         }
     }
 }

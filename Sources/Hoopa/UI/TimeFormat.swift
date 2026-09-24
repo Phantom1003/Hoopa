@@ -5,12 +5,16 @@ enum TimeFormat {
     private static let clock: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "HH:mm"; return f
     }()
-    private static let monthDay: DateFormatter = {
-        let f = DateFormatter(); f.locale = Locale(identifier: "en_US"); f.dateFormat = "MMM d"; return f
-    }()
-    private static let yearMonthDay: DateFormatter = {
-        let f = DateFormatter(); f.locale = Locale(identifier: "en_US"); f.dateFormat = "MMM d, yyyy"; return f
-    }()
+    // Dates follow the interface language: "Sep 25" / "Sep 25, 2027" in English, the localized forms otherwise.
+    private static let monthDay = formatter { $0.setLocalizedDateFormatFromTemplate("MMMd") }
+    private static let yearMonthDay = formatter { $0.setLocalizedDateFormatFromTemplate("yMMMd") }
+    // The system's own relative words: compared with the result without them; a difference means one exists (Today, Tomorrow, Yesterday…).
+    private static let relative = formatter { $0.dateStyle = .medium; $0.doesRelativeDateFormatting = true }
+    private static let plain = formatter { $0.dateStyle = .medium }
+
+    private static func formatter(_ setup: (DateFormatter) -> Void) -> DateFormatter {
+        let f = DateFormatter(); f.locale = AppLanguage.locale; setup(f); return f
+    }
 
     /// A duration: only the two largest units, more precise the closer it gets: "1d 03h" / "20h 00m" / "4m 10s" / "59s".
     /// A leading zero unit is dropped, the second unit is padded to two digits (0 shows too), so the width does not change as the digits tick.
@@ -22,7 +26,7 @@ enum TimeFormat {
         }.joined(separator: " ")
     }
 
-    /// Remaining time, formatted like duration; stops at 0 once past, never negative (the colour and the card tint signal overdue).
+    /// Remaining time, formatted like duration; stops at 0 once past, never negative (the time capsule's colour signals overdue).
     static func remaining(until end: Date, now: Date) -> String {
         duration(max(0, Int(end.timeIntervalSince(now).rounded())))
     }
@@ -35,15 +39,14 @@ enum TimeFormat {
         return cal.dateComponents([.day], from: cal.startOfDay(for: now), to: cal.startOfDay(for: d)).day ?? 0
     }
 
-    /// Today / Tomorrow / Day after / Yesterday / Sep 25
+    /// The interface language's relative words (Yesterday…Tomorrow in English, the localized forms otherwise), else the date: Sep 25
     static func day(_ d: Date, now: Date) -> String {
-        switch dayOffset(d, now: now) {
-        case 0: return "Today"
-        case 1: return "Tomorrow"
-        case 2: return "Day after"
-        case -1: return "Yesterday"
-        default: return monthDay(d, now: now)
+        let offset = dayOffset(d, now: now)
+        if abs(offset) <= 2, let same = Calendar.current.date(byAdding: .day, value: offset, to: Date()) {
+            let word = relative.string(from: same)
+            if word != plain.string(from: same) { return word }
         }
+        return monthDay(d, now: now)
     }
 
     /// The absolute time: today just the time "14:30", other days with the date "Tomorrow 14:30" / "Sep 30 14:30".

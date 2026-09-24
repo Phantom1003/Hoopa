@@ -62,19 +62,20 @@ struct ContextBinding: Codable, Equatable {
     var primary: Anchor { anchors.first ?? .window }
 
     var shortDescription: String {
-        let t = summary.isEmpty ? (windowTitle.isEmpty ? "(untitled window)" : windowTitle) : summary
+        let t = summary.isEmpty ? (windowTitle.isEmpty ? String(localized: "(Untitled window)") : windowTitle) : summary
         return "\(appName) · \(t)"
     }
 
     /// The details shown in the hover tooltip.
     var detailDescription: String {
-        var lines = ["App: \(appName)", "Window: \(windowTitle.isEmpty ? "(untitled)" : windowTitle)"]
+        let title = windowTitle.isEmpty ? String(localized: "(Untitled)") : windowTitle
+        var lines = [String(localized: "App: \(appName)"), String(localized: "Window: \(title)")]
         for a in anchors {
             switch a {
-            case .browserTab(let url, _): lines.append("Tab: \(url)")
-            case .document(let path): lines.append("Document: \(path)")
-            case .link(let url, _): lines.append("Link: \(url)")
-            case .element(let e): lines.append("Element: \(e.role) \(e.texts.first ?? "")")
+            case .browserTab(let url, _): lines.append(String(localized: "Tab: \(url)"))
+            case .document(let path): lines.append(String(localized: "Document: \(path)"))
+            case .link(let url, _): lines.append(String(localized: "Link: \(url)"))
+            case .element(let e): lines.append(String(localized: "Element: \(e.role) \(e.texts.first ?? "")"))
             case .window: break
             }
         }

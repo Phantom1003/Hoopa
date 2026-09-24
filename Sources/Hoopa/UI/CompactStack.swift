@@ -37,7 +37,7 @@ struct CompactStack: View {
                             .zIndex(Double(n - depth))
                             .allowsHitTesting(shown)
                             .onTapGesture { if depth > 0 { front = idx } }
-                            .help(depth > 0 ? "Bring to Front" : "")
+                            .help(depth > 0 ? "Bring to front" : "")
                     }
                 }
                 .padding(.bottom, CGFloat(behind) * peek)
@@ -75,13 +75,13 @@ struct CompactStack: View {
                     Image(systemName: "circle").font(.system(size: 16)).foregroundStyle(Style.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Mark as Done")
+                .help("Mark as done")
                 if let b = t.binding {
                     Button { coordinator.jump(t) } label: {
                         BindingChip(binding: b, jumping: coordinator.jumpingID == t.id)
                     }
                     .buttonStyle(.plain)
-                    .help("Return to \(b.shortDescription)")
+                    .help("Back to \(b.shortDescription)")
                 }
                 if let d = t.due { DueChip(due: d, showDetail: false) }
                 Spacer(minLength: 0)

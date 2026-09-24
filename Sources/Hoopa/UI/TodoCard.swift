@@ -32,19 +32,19 @@ struct TodoCard: View {
                 if let d = todo.due {
                     Button { showDue.toggle() } label: { DueChip(due: d) }
                         .buttonStyle(.plain)
-                        .help("Change Time")
+                        .help("Change time")
                 }
                 Spacer(minLength: 0)
                 if hovering {
                     HStack(spacing: 8) {
                         if todo.due == nil {
                             Button { showDue.toggle() } label: { Image(systemName: "timer") }
-                                .help("Countdown / Time")
+                                .help("Timer / date")
                         }
                         Button { coordinator.bind(todo) } label: {
                             Image(systemName: todo.binding == nil ? "scope" : "arrow.triangle.2.circlepath")
                         }
-                        .help(todo.binding == nil ? "Bind to Window / Page" : "Rebind")
+                        .help(todo.binding == nil ? "Bind to a window / page" : "Rebind")
                         Button { store.delete(todo.id) } label: { Image(systemName: "trash") }
                             .help("Delete")
                     }
@@ -80,7 +80,7 @@ struct TodoCard: View {
             } else {
                 Button("Bind to Window / Page…") { coordinator.bind(todo) }
             }
-            Button("Countdown / Time…") { showDue = true }
+            Button("Timer / Date…") { showDue = true }
             if todo.due != nil { Button("Remove Time") { store.setDue(nil, for: todo.id) } }
             Divider()
             Button(todo.isDone ? "Mark as Not Done" : "Mark as Done") { store.toggleDone(todo.id) }

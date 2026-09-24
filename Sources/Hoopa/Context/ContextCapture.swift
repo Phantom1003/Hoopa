@@ -78,7 +78,7 @@ enum ContextCapture {
             if interfaces.browserScripting, let tab = BrowserTabs.pick(ctx) {
                 picked = tab
             } else if !interfaces.axTree {
-                picked = PickedElement(hint: "This app exposes no accessible elements; only the whole window can be bound")
+                picked = PickedElement(hint: String(localized: "This app exposes no accessible UI elements; only the whole window can be bound"))
             } else if let d = deepest, let el = AX.actionableAncestor(of: d, within: axWindow) {
                 picked = PickedElement(element: el)
             }
