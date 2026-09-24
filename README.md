@@ -43,6 +43,8 @@ CI (`.github/workflows/build.yml`, GitHub Actions) builds on every push to `main
 | Rebind / unbind / delete | Context menu |
 | Collapse / expand | ⌃ at the top left of the panel collapses it into a pill; the ⌄ on the card, or its content, expands it |
 | Details while collapsed | Hover the pill to expand it into a card stack, move away to close; the scroll wheel or a click on a card behind brings it forward |
+| Reorder | Drag the cards |
+| Sort by time | The ⇅ left of the ⋯ at the top right: timed to-dos first, soonest first (overdue at the very top), untimed ones after them in their own order; while it is on, new to-dos and changed times fall into place; click again to return to the manual order. Dragging out of time order while sorting switches back to manual order as dragged |
 | Keep the panel on top, show completed | The ⋯ menu at the top right |
 | Interface language | The ⋯ menu at the top right → Language (English by default, does not follow the system; switching relaunches the app) |
 

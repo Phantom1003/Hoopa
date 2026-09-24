@@ -3,6 +3,9 @@
 /* 面板 */
 "Collapse" = "收起";
 "%lld items" = "%lld 项";
+"Sort by time (soonest first)" = "按时间排序（最近的在前）";
+"Sorted by time · click for manual order" = "已按时间排序 · 点击恢复手动顺序";
+"Sort by time turned off to keep your order" = "已关闭按时间排序，保留拖动后的顺序";
 "Keep Panel on Top" = "面板置顶";
 "Show Completed" = "显示已完成";
 "Language" = "语言";

@@ -37,11 +37,12 @@ final class TodoStore: ObservableObject {
         mutate(id) { $0.due = due }
     }
 
-    /// The order while collapsed: timed to-dos soonest first, the rest in list order.
-    var byUrgency: [TodoItem] {
-        let act = active
-        let timed = act.filter { $0.due != nil }.sorted { $0.due!.date < $1.due!.date }
-        return timed + act.filter { $0.due == nil }
+    /// The order while collapsed, and while expanded with "sort by time" on: timed to-dos soonest first, the rest in list order.
+    var byUrgency: [TodoItem] { Self.urgencyOrder(active) }
+
+    private static func urgencyOrder(_ items: [TodoItem]) -> [TodoItem] {
+        let timed = items.filter { $0.due != nil }.sorted { $0.due!.date < $1.due!.date }
+        return timed + items.filter { $0.due == nil }
     }
 
     func toggleDone(_ id: UUID) {
@@ -82,6 +83,25 @@ final class TodoStore: ObservableObject {
         act.insert(item, at: to)
         todos = act + todos.filter { $0.isDone }
         scheduleSave()
+    }
+
+    /// A drag while sorted by time: moves dragged before / after target in the order on screen (byUrgency).
+    /// If the result still respects time order (only untimed to-dos, or ones with the same time, swapped places), only their relative order changes, returns true and the time sort continues;
+    /// otherwise the order on screen after the move becomes the list order and it returns false (back to manual order, the list does not jump).
+    func moveByUrgency(_ dragged: UUID, relativeTo target: UUID, after: Bool) -> Bool {
+        var order = byUrgency
+        guard let from = order.firstIndex(where: { $0.id == dragged }) else { return true }
+        let item = order.remove(at: from)
+        guard var to = order.firstIndex(where: { $0.id == target }) else { return true }
+        if after { to += 1 }
+        order.insert(item, at: to)
+        // To-dos with the same time (or no time) keep their slots in the list and are filled back in the order after the move.
+        var groups = Dictionary(grouping: order) { $0.due?.date }
+        let refilled = active.map { groups[$0.due?.date]!.removeFirst() }
+        let stillByTime = Self.urgencyOrder(refilled).map(\.id) == order.map(\.id)
+        todos = (stillByTime ? refilled : order) + todos.filter { $0.isDone }
+        scheduleSave()
+        return stillByTime
     }
 
     func move(from source: IndexSet, to destination: Int) {

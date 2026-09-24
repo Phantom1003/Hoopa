@@ -90,6 +90,9 @@ struct ExpandedView: View {
     @EnvironmentObject var permissions: PermissionState
     @EnvironmentObject var coordinator: AppCoordinator
     @State private var showDone = false
+    /// Sort by time (remembered). Only the display order: switched off, the list returns to its own order.
+    @AppStorage("sortByTime") private var sortByTime = false
+    private static let reorder = Animation.smooth(duration: 0.3)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -113,6 +116,7 @@ struct ExpandedView: View {
             if !store.active.isEmpty {
                 Text("\(store.active.count) items").font(.caption).foregroundStyle(Style.secondary)
             }
+            sortButton
             Menu {
                 Toggle("Keep Panel on Top", isOn: Binding(
                     get: { coordinator.alwaysOnTop },
@@ -144,6 +148,18 @@ struct ExpandedView: View {
         .windowDraggable()
     }
 
+    /// The sort-by-time toggle: timed to-dos first, soonest first (overdue at the very top), untimed ones after them in their own order;
+    /// while it is on, new to-dos and changed times fall into place. A round icon the size of ⋯, filled with the accent colour while on; the same size in both states, so it does not shift after a click.
+    private var sortButton: some View {
+        Button { sortByTime.toggle() } label: {
+            Image(systemName: sortByTime ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
+                .foregroundStyle(sortByTime ? Style.accent : Style.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(sortByTime ? "Sorted by time · click for manual order" : "Sort by time (soonest first)")
+    }
+
     private var permissionBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
@@ -158,32 +174,51 @@ struct ExpandedView: View {
     }
 
     private var list: some View {
-        ScrollView {
-            LazyVStack(spacing: 4) {
-                if store.active.isEmpty && (!showDone || store.done.isEmpty) {
-                    emptyState
-                }
-                ForEach(store.active) { todo in
-                    TodoCard(todo: todo)
-                        .reorderable(todo.id, store: store)
-                }
-                if showDone && !store.done.isEmpty {
-                    HStack {
-                        Text("Completed · \(store.done.count)").font(.caption).foregroundStyle(Style.secondary)
-                        Spacer()
+        let items = sortByTime ? store.byUrgency : store.active
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    if items.isEmpty && (!showDone || store.done.isEmpty) {
+                        emptyState
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 10)
-                    ForEach(store.done) { todo in
+                    ForEach(items) { todo in
                         TodoCard(todo: todo)
+                            .reorderable(todo.id) { dragged, after in move(dragged, relativeTo: todo.id, after: after) }
+                    }
+                    if showDone && !store.done.isEmpty {
+                        HStack {
+                            Text("Completed · \(store.done.count)").font(.caption).foregroundStyle(Style.secondary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.top, 10)
+                        ForEach(store.done) { todo in
+                            TodoCard(todo: todo)
+                        }
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                // While sorted by time (including the click on the toggle itself) every order change animates, so it is visible where a card went; manual order stays as it is.
+                .animation(Self.reorder, value: sortByTime ? items.map(\.id) : nil)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
+            // A new to-do sorted by time may land out of view: scroll just enough to show it (no movement when it is already visible).
+            .onChange(of: store.todos.map(\.id)) { old, new in
+                guard let added = new.first(where: { !old.contains($0) }) else { return }
+                DispatchQueue.main.async { withAnimation(Self.reorder) { proxy.scrollTo(added) } }
+            }
         }
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
+    }
+
+    /// Drag to reorder. Dragging out of time order while sorted by time switches back to manual order as dragged, with a toast.
+    private func move(_ dragged: UUID, relativeTo target: UUID, after: Bool) {
+        guard sortByTime else { store.move(dragged, relativeTo: target, after: after); return }
+        if !store.moveByUrgency(dragged, relativeTo: target, after: after) {
+            sortByTime = false
+            coordinator.showToast(String(localized: "Sort by time turned off to keep your order"))
+        }
     }
 
     private var emptyState: some View {
@@ -234,10 +269,10 @@ struct CompactToggle: View {
     }
 }
 
-/// Drag to reorder: dropping on the upper half of another card inserts before it, on the lower half after it.
+/// Drag to reorder: dropping on the upper half of another card inserts before it, on the lower half after it (onMove(the dragged card, whether to insert after)).
 private struct Reorderable: ViewModifier {
     let id: UUID
-    let store: TodoStore
+    let onMove: (UUID, Bool) -> Void
     @State private var height: CGFloat = 60
     @State private var targeted = false
     @State private var insertAfter = false
@@ -254,7 +289,7 @@ private struct Reorderable: ViewModifier {
             .draggable(id.uuidString)
             .dropDestination(for: String.self) { items, location in
                 guard let s = items.first, let dragged = UUID(uuidString: s), dragged != id else { return false }
-                store.move(dragged, relativeTo: id, after: location.y > height / 2)
+                onMove(dragged, location.y > height / 2)
                 return true
             } isTargeted: { targeted = $0 }
             .onContinuousHover { phase in
@@ -264,5 +299,5 @@ private struct Reorderable: ViewModifier {
 }
 
 extension View {
-    func reorderable(_ id: UUID, store: TodoStore) -> some View { modifier(Reorderable(id: id, store: store)) }
+    func reorderable(_ id: UUID, onMove: @escaping (UUID, Bool) -> Void) -> some View { modifier(Reorderable(id: id, onMove: onMove)) }
 }
