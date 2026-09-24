@@ -16,9 +16,9 @@ After the first launch:
 1. The top of the panel asks for the **Accessibility** permission (System Settings → Privacy & Security → Accessibility); recognising windows and jumping both depend on it.
 2. The first time you bind a browser tab, macOS asks whether Hoopa may control Safari / Chrome; allow it.
 
-> An ad hoc signed app gets a new signature on every rebuild, the Accessibility grant is lost and has to be removed and added again in System Settings.
-> To avoid that, create a self-signed code signing certificate in Keychain Access (named `Hoopa Dev`, say) and run
-> `SIGN_IDENTITY="Hoopa Dev" ./build.sh`; the grant then stays.
+> Signing uses the **Apple Development** certificate in the keychain by default, so the Accessibility grant survives a rebuild; without a certificate, or when signing fails, the script stops with an error
+> rather than falling back to ad hoc (an ad hoc signature changes with every build and the grant is lost). Signing needs the private key in the keychain, so run it from Terminal
+> and click "Always Allow" in the keychain prompt. Another certificate can be given with `SIGN_IDENTITY="Hoopa Dev" ./build.sh`; pass `SIGN_IDENTITY=-` to sign ad hoc on purpose.
 
 ## Usage
 

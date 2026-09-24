@@ -19,13 +19,23 @@ cp .build/release/Hoopa "$APP/Contents/MacOS/Hoopa"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"    # the interface translations
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
-# Signing identity: SIGN_IDENTITY from the environment, otherwise the first valid Apple Development certificate in the keychain,
-# otherwise ad hoc ("-"). Signed with a real certificate, the Accessibility grant survives rebuilds.
+# Signing identity: SIGN_IDENTITY from the environment, otherwise the first valid Apple Development certificate in the keychain.
+# No automatic fallback to ad hoc: an ad hoc signature changes with every build and the Accessibility grant is lost. Pass SIGN_IDENTITY=- explicitly for ad hoc.
 if [[ -z "${SIGN_IDENTITY:-}" ]]; then
   SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
     | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"')
 fi
-SIGN_IDENTITY="${SIGN_IDENTITY:--}"
-codesign --force --sign "$SIGN_IDENTITY" "$APP"
+if [[ -z "$SIGN_IDENTITY" ]]; then
+  rm -rf "$APP"
+  echo "❌ No Apple Development certificate in the keychain (sign in to a developer account under Xcode → Settings → Accounts to create one)." >&2
+  exit 1
+fi
+# Signing needs the private key in the keychain: run this script from Terminal and click "Always Allow" in the keychain prompt.
+# Delete the unsigned app when signing fails, so it is not opened by mistake.
+if ! codesign --force --sign "$SIGN_IDENTITY" "$APP"; then
+  rm -rf "$APP"
+  echo "❌ Signing failed ($SIGN_IDENTITY). Run from Terminal and click \"Always Allow\" when the keychain unlocks / prompts." >&2
+  exit 1
+fi
 echo "✅ Built $APP (signed with: $SIGN_IDENTITY)"
 echo "   Run: open \"$APP\""
