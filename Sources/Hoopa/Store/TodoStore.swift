@@ -22,9 +22,10 @@ final class TodoStore: ObservableObject {
     // MARK: - Operations
 
     @discardableResult
+    /// Any one of content, binding or time is enough to create.
     func add(_ title: String, binding: ContextBinding? = nil, due: Due? = nil) -> TodoItem? {
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty else { return nil }
+        guard !t.isEmpty || binding != nil || due != nil else { return nil }
         let item = TodoItem(title: t, binding: binding, due: due)
         todos.insert(item, at: 0)
         Notifier.schedule(item)
@@ -50,10 +51,9 @@ final class TodoStore: ObservableObject {
         }
     }
 
+    /// The content is saved as it is typed (may be empty).
     func rename(_ id: UUID, to title: String) {
-        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty else { return }
-        mutate(id) { $0.title = t }
+        mutate(id) { $0.title = title }
     }
 
     func setBinding(_ binding: ContextBinding?, for id: UUID) {

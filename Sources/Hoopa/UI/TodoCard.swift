@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// A to-do: a sticky-note card; the title is editable at any time, the binding chip jumps on click, the time chip changes the time on click.
+/// A to-do: a sticky-note card. The first row holds the done box, the binding chip (click to jump), the time chip (click to change the time) and the hover actions;
+/// the second row is the content, editable at any time. Styled like the creation card.
 struct TodoCard: View {
     let todo: TodoItem
     @EnvironmentObject var store: TodoStore
@@ -14,57 +15,61 @@ struct TodoCard: View {
     private var isJumping: Bool { coordinator.jumpingID == todo.id }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Button { store.toggleDone(todo.id) } label: {
-                Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 16))
-                    .foregroundStyle(todo.isDone ? Style.accent : Style.secondary)
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 2)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Button { store.toggleDone(todo.id) } label: {
+                    Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 16))
+                        .foregroundStyle(todo.isDone ? Style.accent : Style.secondary)
+                }
+                .buttonStyle(.plain)
 
-            VStack(alignment: .leading, spacing: 6) {
-                GrowingTextEditor(text: $draft, placeholder: "To-do",
-                                  onCommit: { commit(); editing = false }, focused: $editing)
-                    .foregroundStyle(todo.isDone ? Style.secondary : Style.text)
-                    .opacity(todo.isDone ? 0.7 : 1)
-                    .onChange(of: editing) { _, on in if !on { commit() } }
-                    .onChange(of: todo.title) { _, t in if !editing { draft = t } }
-
-                HStack(spacing: 6) {
-                    if let b = todo.binding {
-                        Button { coordinator.jump(todo) } label: { BindingChip(binding: b, jumping: isJumping) }
-                            .buttonStyle(.plain)
-                            .help(b.detailDescription)
-                    }
-                    if let d = todo.due {
-                        Button { showDue.toggle() } label: { DueChip(due: d) }.buttonStyle(.plain)
-                    }
-                    if hovering {
+                if let b = todo.binding {
+                    Button { coordinator.jump(todo) } label: { BindingChip(binding: b, jumping: isJumping) }
+                        .buttonStyle(.plain)
+                        .help(b.detailDescription)
+                }
+                if let d = todo.due {
+                    Button { showDue.toggle() } label: { DueChip(due: d) }
+                        .buttonStyle(.plain)
+                        .help("Change Time")
+                }
+                Spacer(minLength: 0)
+                if hovering {
+                    HStack(spacing: 8) {
                         if todo.due == nil {
                             Button { showDue.toggle() } label: { Image(systemName: "timer") }
-                                .buttonStyle(.plain).foregroundStyle(Style.secondary).help("Countdown / Time")
+                                .help("Countdown / Time")
                         }
                         Button { coordinator.bind(todo) } label: {
                             Image(systemName: todo.binding == nil ? "scope" : "arrow.triangle.2.circlepath")
                         }
-                        .buttonStyle(.plain).foregroundStyle(Style.secondary)
                         .help(todo.binding == nil ? "Bind to Window / Page" : "Rebind")
                         Button { store.delete(todo.id) } label: { Image(systemName: "trash") }
-                            .buttonStyle(.plain).foregroundStyle(Style.secondary).help("Delete")
+                            .help("Delete")
                     }
-                }
-                .font(.system(size: 12))
-                .popover(isPresented: $showDue, arrowEdge: .bottom) {
-                    DuePicker(spec: Binding(get: { todo.due.map(DueSpec.init) },
-                                            set: { store.setDue($0?.resolve(), for: todo.id) })) { showDue = false }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Style.secondary)
+                    .font(.system(size: 12))
                 }
             }
-            Spacer(minLength: 0)
+            .popover(isPresented: $showDue, arrowEdge: .bottom) {
+                DuePicker(spec: Binding(get: { todo.due.map(DueSpec.init) },
+                                        set: { store.setDue($0?.resolve(), for: todo.id) })) { showDue = false }
+            }
+
+            // The content is saved as typed, no Return needed; ⌘Return only ends editing.
+            GrowingTextEditor(text: $draft, placeholder: "To-do",
+                              onCommit: { editing = false }, focused: $editing)
+                .foregroundStyle(todo.isDone ? Style.secondary : Style.text)
+                .opacity(todo.isDone ? 0.7 : 1)
+                .onChange(of: draft) { _, t in if t != todo.title { store.rename(todo.id, to: t) } }
+                .onChange(of: todo.title) { _, t in if t != draft { draft = t } }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 12).fill(hovering ? Style.cardHover : Style.card))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(hovering ? Style.cardHover : Style.card))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.08)))
         .onHover { hovering = $0 }
         .onAppear { draft = todo.title }
         .contextMenu {
@@ -83,8 +88,4 @@ struct TodoCard: View {
         }
     }
 
-    private func commit() {
-        let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.isEmpty { draft = todo.title } else if t != todo.title { store.rename(todo.id, to: t) }
-    }
 }

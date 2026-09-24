@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Collapsed: a pill showing only the most urgent to-do. Tap the title to expand; click the app icon to jump; press anywhere to drag.
+/// Collapsed: a pill showing only the most urgent to-do. Tap the title or the ⌄ on the right to expand; click the app icon to jump; press anywhere to drag.
 struct CompactPill: View {
     @EnvironmentObject var store: TodoStore
     @EnvironmentObject var coordinator: AppCoordinator
@@ -15,7 +15,10 @@ struct CompactPill: View {
                 }
                 // The title area is not a button: a button would swallow the press and the pill could not be dragged. Tap to expand, press and hold to drag.
                 HStack(spacing: 6) {
-                    Text(t.title).lineLimit(1).truncationMode(.tail).frame(maxWidth: 220, alignment: .leading)
+                    let title = t.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !title.isEmpty {
+                        Text(title).lineLimit(1).truncationMode(.tail).frame(maxWidth: 220, alignment: .leading)
+                    }
                     if let d = t.due { DueChip(due: d) }
                     if store.active.count > 1 {
                         Text("+\(store.active.count - 1)").font(.system(size: 11, weight: .semibold)).foregroundStyle(Style.secondary)
@@ -24,6 +27,7 @@ struct CompactPill: View {
                 .contentShape(Rectangle())
                 .onTapGesture { coordinator.isCompact = false }
                 .help("Tap to expand, press to drag")
+                expandButton
             } else {
                 Button { coordinator.isCompact = false } label: {
                     Image(systemName: "plus").font(.system(size: 14, weight: .semibold)).frame(width: 22, height: 22)
@@ -48,5 +52,18 @@ struct CompactPill: View {
             Divider()
             Button("Quit Hoopa") { coordinator.onQuit?() }
         }
+    }
+
+    /// The expand symbol on the right: a clear place to click even when the content is empty.
+    private var expandButton: some View {
+        Button { coordinator.isCompact = false } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Style.secondary)
+                .frame(width: 16, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Expand")
     }
 }

@@ -9,7 +9,11 @@ struct InputPill: View {
     @State private var showDue = false
     @FocusState private var focused: Bool
 
-    private var canSubmit: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    /// Any one of content, binding or time is enough to submit.
+    private var canSubmit: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || coordinator.pendingBinding != nil || coordinator.pendingDue != nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
