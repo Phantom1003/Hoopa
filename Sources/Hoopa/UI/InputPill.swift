@@ -31,7 +31,11 @@ struct InputPill: View {
         .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Style.card))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.08)))
-        .onAppear { DispatchQueue.main.async { focused = true } }
+        .onAppear { if !coordinator.isCompact { DispatchQueue.main.async { focused = true } } }
+        // Collapsed, the panel stays off-window, so take the focus back or keys would land in the invisible field.
+        .onChange(of: coordinator.isCompact) { _, compact in
+            if compact { focused = false } else { DispatchQueue.main.async { focused = true } }
+        }
     }
 
     private var submitButton: some View {

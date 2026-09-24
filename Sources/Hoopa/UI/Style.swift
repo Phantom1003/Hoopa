@@ -14,6 +14,26 @@ enum Style {
     static let overdue = Color.red
 }
 
+/// The timing of collapse / expand and pill ↔ card: one step at a time, clearly in sequence.
+enum Motion {
+    /// Pill → card → card stack, one morph per step; the next starts once the previous has mostly played.
+    static let step = Animation.smooth(duration: 0.3)
+    static let stepGap: TimeInterval = 0.28
+    static let stepBusy: TimeInterval = 0.4
+    /// Expand: the plate grows from the front card to the whole panel (the card content fades out meanwhile), the panel content appears once it has grown.
+    static let plateIn = Animation.easeOut(duration: 0.1)
+    static let panelGrow = Animation.smooth(duration: 0.36)
+    static let compactOut = Animation.easeOut(duration: 0.15)
+    static let panelContentIn = Animation.easeOut(duration: 0.2).delay(0.32)
+    static let expandBusy: TimeInterval = 0.55
+    /// Collapse: the panel content fades out first, the plate shrinks back to the card's rect, the card appears with it and the plate gives way to the card's own glass.
+    static let panelContentOut = Animation.easeOut(duration: 0.12)
+    static let panelShrink = Animation.smooth(duration: 0.32).delay(0.1)
+    static let compactIn = Animation.easeOut(duration: 0.15).delay(0.36)
+    static let plateOut = Animation.easeIn(duration: 0.1).delay(0.4)
+    static let collapseBusy: TimeInterval = 0.6
+}
+
 /// A small capsule chip.
 struct ChipStyle: ViewModifier {
     var tint: Color = Style.chip

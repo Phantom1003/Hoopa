@@ -72,6 +72,7 @@ struct TodoCard: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.08)))
         .onHover { hovering = $0 }
         .onAppear { draft = todo.title }
+        .onChange(of: coordinator.isCompact) { _, compact in if compact { editing = false } }
         .contextMenu {
             if todo.binding != nil {
                 Button("Jump to Bound Page") { coordinator.jump(todo) }

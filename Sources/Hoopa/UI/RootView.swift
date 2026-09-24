@@ -1,17 +1,82 @@
 import SwiftUI
 
+/// Collapse ↔ expand: the panel's glass is a separate "plate". Expanding, it grows from the front card's (or the pill's) rect to the whole panel
+/// while the card content fades out, and the panel content appears once it has grown; collapsing reverses it: the panel content fades out first, the plate shrinks back to the card's rect, the card appears and the plate gives way to the card's own glass.
+/// The cards stacked behind do not move; they only fade in and out.
+/// The window grows first and shrinks once the animation is over (see FirstMouseHostingView.fitWindow); the content stays glued to the top left.
 struct RootView: View {
     @EnvironmentObject var coordinator: AppCoordinator
+    /// The rect and corner radius of the collapsed front card (or the pill), reported by CompactView: the plate grows out of here / shrinks back here.
+    @State private var front = FrontGeometry(rect: CGRect(x: 0, y: 0, width: CompactView.cardWidth, height: 80), radius: 12)
+    /// Collapsed, the panel content moves off-window but stays alive: expanding does not rebuild the composer and the list (a rebuild stalls 100ms and the animation skips its start).
+    @State private var parked: Bool
+
+    init(startCompact: Bool) { _parked = State(initialValue: startCompact) }
+
+    /// When the plate's rect animates: at the moment of expanding / collapsing, and when the collapsed front card's rect changes; while expanded, the window being dragged larger or smaller is followed directly, not animated.
+    private struct PlateKey: Equatable { var expanded: Bool; var front: FrontGeometry? }
 
     var body: some View {
-        if coordinator.isCompact {
-            switch coordinator.compactStyle {
-            case .pill: CompactPill()
-            case .stack: CompactStack()
-            }
-        } else {
-            ExpandedView()
+        // The panel size comes from the window (coordinator.panelSize), not GeometryReader: that reports the root view's ideal size as 10×10 and the collapsed window would shrink to nothing.
+        let expanded = !coordinator.isCompact
+        let plate = expanded ? FrontGeometry(rect: CGRect(origin: .zero, size: coordinator.panelSize), radius: 18) : front
+        ZStack(alignment: .topLeading) {
+                Color.clear
+                    .glass(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
+                    .frame(width: plate.rect.width, height: plate.rect.height)
+                    .offset(x: plate.rect.minX, y: plate.rect.minY)
+                    .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
+                               value: PlateKey(expanded: expanded, front: expanded ? nil : front))
+                    .opacity(expanded ? 1 : 0)
+                    .animation(expanded ? Motion.plateIn : Motion.plateOut, value: expanded)
+                    .allowsHitTesting(false)
+                if coordinator.isCompact {
+                    CompactView()
+                        .zIndex(1)
+                        .transition(.asymmetric(insertion: .opacity.animation(Motion.compactIn),
+                                                removal: .opacity.animation(Motion.compactOut)))
+                }
+                // The layout size matches the plate and animates with it: the ZStack's size never jumps (a jump would be treated by SwiftUI as a geometry animation about the centre and drag the plate off).
+                // The content spreads at its own minimum size; whatever sticks out is hidden by the timing of the fades.
+                ExpandedView()
+                    .frame(width: plate.rect.width, height: plate.rect.height, alignment: .topLeading)
+                    .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
+                               value: PlateKey(expanded: expanded, front: expanded ? nil : front))
+                    .offset(x: parked ? -4000 : 0)
+                    .animation(nil, value: parked)        // moving in and out is not animated
+                    .opacity(expanded ? 1 : 0)
+                    .allowsHitTesting(expanded)
+                    .animation(expanded ? Motion.panelContentIn : Motion.panelContentOut, value: expanded)
+                    .zIndex(2)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onPreferenceChange(FrontGeometryKey.self) { f in if f.rect.width > 1 { front = f } }
+        .onPreferenceChange(CompactSizesKey.self) { coordinator.compactSizes = $0 }
+        .onChange(of: coordinator.isCompact) { _, compact in
+            if compact {
+                // Move away only after the panel content has faded out.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { if coordinator.isCompact { parked = true } }
+            } else {
+                parked = false
+            }
+        }
+        .animation(Motion.panelShrink, value: coordinator.isCompact)
+        .animation(Motion.step, value: coordinator.stage)
+    }
+}
+
+/// The rect (window coordinates) and corner radius of the collapsed front card (or the pill).
+struct FrontGeometry: Equatable {
+    var rect: CGRect
+    var radius: CGFloat
+}
+
+struct FrontGeometryKey: PreferenceKey {
+    static let defaultValue = FrontGeometry(rect: .zero, radius: 12)
+    /// Only the front card reports a non-empty rect; the rest are ignored.
+    static func reduce(value: inout FrontGeometry, nextValue: () -> FrontGeometry) {
+        let next = nextValue()
+        if next.rect.width > 0 { value = next }
     }
 }
 
@@ -30,9 +95,8 @@ struct ExpandedView: View {
             list
         }
         .frame(minWidth: 300, minHeight: 320)
-        // The NSScrollView under the list is square and would show white sharp corners outside the glass's rounding: clip it round first, then lay the glass.
+        // The NSScrollView under the list is square and would show sharp corners outside the rounding: clip it round. The glass is a separate layer in RootView.
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .glass(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .windowDraggable()
         .overlay(alignment: .bottom) { toast }
     }
@@ -54,9 +118,6 @@ struct ExpandedView: View {
                     get: { coordinator.alwaysOnTop },
                     set: { coordinator.alwaysOnTop = $0; coordinator.onAlwaysOnTopChanged?($0) }))
                 Toggle("Show Completed", isOn: $showDone)
-                Picker("Collapsed Style", selection: $coordinator.compactStyle) {
-                    ForEach(CompactStyle.allCases) { Text($0.label).tag($0) }
-                }
                 // Switching the language relaunches the app. Language names are not translated.
                 Picker("Language", selection: Binding(get: { AppLanguage.current }, set: { AppLanguage.switchTo($0) })) {
                     ForEach(AppLanguage.allCases) { Text(verbatim: $0.name).tag($0) }

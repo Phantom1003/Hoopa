@@ -3,12 +3,14 @@ import SwiftUI
 
 /// The always-floating panel. Non-activating (like Spotlight): hovering and clicking work right away without a click to activate the app first;
 /// a jump does not first pull the focus to Hoopa and then away. When input is needed the panel becomes the key window by itself without activating the whole app.
-/// Two shapes: collapsed into a pill (sized to its content) or an expanded, resizable panel; the top left corner stays put when switching.
+/// Two shapes: collapsed (a pill that becomes a card on hover, sized to its content) or an expanded, resizable panel; the top left corner stays put when switching.
 final class FloatingPanel: NSPanel {
     static let expandedDefault = NSSize(width: 360, height: 480)
     static let expandedMin = NSSize(width: 300, height: 320)
     private var expandedSize = FloatingPanel.expandedDefault
     private let hosting: FirstMouseHostingView<AnyView>
+    /// The window size changed (including the growth at the moment of expanding); report it to the UI layer.
+    var onResize: ((CGSize) -> Void)?
 
     init(contentView: FirstMouseHostingView<AnyView>) {
         hosting = contentView
@@ -34,6 +36,10 @@ final class FloatingPanel: NSPanel {
             setFrameOrigin(NSPoint(x: f.midX - 180, y: f.maxY - 520))
         }
         expandedSize = frame.size
+        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: self, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.onResize?(self.frame.size)
+        }
     }
 
     /// Transparent background. Changing styleMask makes AppKit rebuild the window layer, so both have to be applied again.
@@ -73,39 +79,56 @@ final class FloatingPanel: NSPanel {
         level = on ? .floating : .normal
     }
 
-    /// Collapse / expand. Collapsed, the SwiftUI content decides the window size (the pill follows the title length).
-    func setCompact(_ compact: Bool) {
-        let topLeft = NSPoint(x: frame.minX, y: frame.maxY)
+    /// Collapse / expand, top left corner fixed. Collapsing sizes the window to the content (pill / card) and shrinks it once the collapse animation is over; expanding grows it to the panel size at once
+    /// (the extra area is transparent and click-through, invisible), the card moves to its list position and the panel glass grows out of the card.
+    func setCompact(_ compact: Bool, animated: Bool = true) {
         if compact {
             expandedSize = frame.size
             styleMask.remove(.resizable)
             applyChrome()
-            minSize = NSSize(width: 60, height: 30)
+            minSize = NSSize(width: 40, height: 30)
             hosting.capsule = true
-            hosting.autoFit = true          // the window follows the content size (pill / card stack), top left corner fixed
+            if animated { hosting.noteMorph(Motion.collapseBusy) }
+            hosting.autoFit = true          // shrinking waits for the collapse animation, see fitWindow
+            if !animated { hosting.fitWindow(immediately: true) }
         } else {
             hosting.autoFit = false
-            hosting.capsule = false
+            // Add the rounded mask only once the glass has grown fully, so the corners of the growing glass are not clipped.
+            DispatchQueue.main.asyncAfter(deadline: .now() + (animated ? Motion.expandBusy : 0)) { [hosting] in
+                if !hosting.autoFit { hosting.capsule = false }
+            }
             styleMask.insert(.resizable)
             applyChrome()
             minSize = FloatingPanel.expandedMin
             let size = NSSize(width: max(expandedSize.width, FloatingPanel.expandedMin.width),
                               height: max(expandedSize.height, FloatingPanel.expandedMin.height))
-            setFrame(NSRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height), display: true, animate: true)
-        }
-        DispatchQueue.main.async { [self] in
-            if compact { hosting.fitWindow() }
-            // After the content size changes, put the top left corner back and stay on screen.
-            var f = frame
-            f.origin.y = topLeft.y - f.height
-            f.origin.x = topLeft.x
-            if let s = screen ?? NSScreen.main {
-                let v = s.frame
+            var f = NSRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height)
+            if let v = (screen ?? NSScreen.main)?.frame {   // stay on screen
                 f.origin.x = min(max(f.origin.x, v.minX), v.maxX - f.width)
                 f.origin.y = min(max(f.origin.y, v.minY), v.maxY - f.height)
             }
-            setFrameOrigin(f.origin)
-            invalidateShadow()
+            onResize?(f.size)               // tell the UI layer the panel size first, so the plate's end rect is right
+            setFrame(f, display: true)      // lay out once at the new size right away (the state has not changed yet), see AppCoordinator.isCompact
+        }
+        if animated { trackShadow(for: compact ? Motion.collapseBusy : Motion.expandBusy) } else { invalidateShadow() }
+    }
+
+    /// The collapsed state starts a morph (pill ↔ card ↔ stack): during it the window only grows and the shadow keeps refreshing;
+    /// when the end size is known the window grows to it right away instead of following the content frame by frame (resizing the window per frame leaves the content a frame behind and jittering).
+    func noteMorph(_ busy: TimeInterval, target: CGSize? = nil) {
+        hosting.noteMorph(busy, target: target)
+        trackShadow(for: busy)
+    }
+
+    private var shadowTimer: Timer?
+
+    /// Keeps the window shadow refreshing during a morph: a transparent window's shadow follows the content's shape and keeps the old one unless refreshed.
+    func trackShadow(for duration: TimeInterval) {
+        shadowTimer?.invalidate()
+        let end = Date().addingTimeInterval(duration + 0.1)
+        shadowTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] t in
+            self?.invalidateShadow()
+            if Date() >= end { t.invalidate() }
         }
     }
 }
@@ -118,16 +141,49 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     /// Collapsed: the window is sized to the content. NSHostingView's own preferredContentSize does nothing here, so measure and set it ourselves.
     var autoFit = false { didSet { needsLayout = true } }
     private var fitting = false
+    private var shrinkPending = false
+    private var busyUntil = Date.distantPast
+    private var morphTarget: CGSize?
 
-    /// Sizes the window to the content's ideal size, top left corner fixed.
-    func fitWindow() {
+    /// A morph is playing: until busy seconds pass the window only grows; target is the content size at the end of the morph.
+    func noteMorph(_ busy: TimeInterval, target: CGSize? = nil) {
+        busyUntil = max(busyUntil, Date().addingTimeInterval(busy))
+        morphTarget = target
+    }
+
+    /// Sizes the window to the content's ideal size, top left corner fixed. Growing happens at once (the extra area is transparent, invisible);
+    /// Shrinking waits until every morph is over (see noteMorph), so glass and cards still folding are not clipped.
+    func fitWindow(immediately: Bool = false) {
         guard autoFit, let w = window, !fitting else { return }
-        let size = fittingSize
-        guard size.width > 1, size.height > 1,
+        var size = fittingSize
+        guard size.width > 1, size.height > 1 else { return }
+        if immediately { resizeWindow(to: size); return }
+        // The content grows frame by frame during a morph: grow the window to the end size directly.
+        if busyUntil > Date(), let t = morphTarget {
+            size = NSSize(width: max(size.width, t.width), height: max(size.height, t.height))
+        }
+        let cur = w.frame.size
+        let grown = NSSize(width: max(cur.width, size.width), height: max(cur.height, size.height))
+        if grown != cur { resizeWindow(to: grown) }
+        if size.width < grown.width - 0.5 || size.height < grown.height - 0.5 { scheduleShrink() }
+    }
+
+    private func scheduleShrink() {
+        guard !shrinkPending else { return }
+        shrinkPending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(busyUntil.timeIntervalSinceNow, 0) + 0.05) { [weak self] in
+            guard let self else { return }
+            self.shrinkPending = false
+            if self.busyUntil > Date() { self.scheduleShrink(); return }   // another morph started meanwhile
+            self.fitWindow(immediately: true)     // to the content size at that moment
+        }
+    }
+
+    private func resizeWindow(to size: NSSize) {
+        guard let w = window,
               abs(w.frame.width - size.width) > 0.5 || abs(w.frame.height - size.height) > 0.5 else { return }
         fitting = true
-        let topLeft = NSPoint(x: w.frame.minX, y: w.frame.maxY)
-        w.setFrame(NSRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height), display: true)
+        w.setFrame(NSRect(x: w.frame.minX, y: w.frame.maxY - size.height, width: size.width, height: size.height), display: true)
         w.invalidateShadow()
         fitting = false
     }

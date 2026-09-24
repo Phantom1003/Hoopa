@@ -44,9 +44,6 @@ final class TodoStore: ObservableObject {
         return timed + act.filter { $0.due == nil }
     }
 
-    /// The to-do shown while collapsed.
-    var compactItem: TodoItem? { byUrgency.first }
-
     func toggleDone(_ id: UUID) {
         mutate(id) { item in
             item.isDone.toggle()

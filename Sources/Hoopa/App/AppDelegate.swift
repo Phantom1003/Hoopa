@@ -17,25 +17,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if AX.isTrusted { DispatchQueue.global().async { AX.resetEnhancedUIOnce() } }
         coordinator.onStartPicking = { [weak self] todo in self?.startPicking(for: todo) }
         coordinator.onAlwaysOnTopChanged = { [weak self] on in self?.panel.setAlwaysOnTop(on) }
-        coordinator.onCompactChanged = { [weak self] compact in
-            self?.panel.setCompact(compact)
-            UserDefaults.standard.set(compact, forKey: "compact")
-        }
         coordinator.onQuit = { NSApp.terminate(nil) }
+        // Collapsed at the last quit: launch straight into the pill without the collapse animation (onCompactChanged is not hooked up yet).
+        let startCompact = UserDefaults.standard.bool(forKey: "compact")
+        if startCompact { coordinator.restoreCompact() }
 
-        let root = RootView()
+        let root = RootView(startCompact: startCompact)
             .environmentObject(store)
             .environmentObject(permissions)
             .environmentObject(coordinator)
             .environment(\.locale, AppLanguage.locale)   // plural rules and the like follow the interface language, not the system region
         let hosting = FirstMouseHostingView(rootView: AnyView(root))
         panel = FloatingPanel(contentView: hosting)
+        panel.onResize = { [weak self] size in self?.coordinator.panelSize = size }
+        coordinator.panelSize = panel.frame.size
+        if startCompact { panel.setCompact(true, animated: false) }
+        coordinator.onCompactChanged = { [weak self] compact in
+            self?.panel.setCompact(compact)
+            UserDefaults.standard.set(compact, forKey: "compact")
+        }
+        coordinator.onMorph = { [weak self] busy, target in self?.panel.noteMorph(busy, target: target) }
         UNUserNotificationCenter.current().delegate = self
 
         setupStatusItem()
         setupHotkey()
         panel.show()
-        if UserDefaults.standard.bool(forKey: "compact") { coordinator.isCompact = true }
         // Notifications scheduled by the last run may be gone; schedule them again.
         store.todos.forEach(Notifier.schedule)
     }
@@ -64,10 +70,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // MARK: Menu bar
 
+    /// The monochrome template image build.sh generates from scripts/icon-source.png (menubar.png / @2x); the system tints it to the menu bar colours.
+    /// An executable run straight from swift build has none of these resources; fall back to an SF Symbol.
+    private static let menuBarIcon: NSImage? = {
+        guard let image = Bundle.main.image(forResource: "menubar") else {
+            return NSImage(systemSymbolName: "checklist", accessibilityDescription: "Hoopa")
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Hoopa"
+        return image
+    }()
+
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "checklist", accessibilityDescription: "Hoopa")
+            button.image = Self.menuBarIcon
             button.target = self
             button.action = #selector(statusItemClicked)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])

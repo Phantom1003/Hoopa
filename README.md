@@ -20,11 +20,17 @@ After the first launch:
 > rather than falling back to ad hoc (an ad hoc signature changes with every build and the grant is lost). Signing needs the private key in the keychain, so run it from Terminal
 > and click "Always Allow" in the keychain prompt. Another certificate can be given with `SIGN_IDENTITY="Hoopa Dev" ./build.sh`; pass `SIGN_IDENTITY=-` to sign ad hoc on purpose.
 
+CI (`.github/workflows/build.yml`, GitHub Actions) builds on every push to `main`, every PR, every `v*` tag and on manual dispatch.
+- Runs `SIGN_IDENTITY=- ./build.sh` once on `macos-26` (the GA image, a failure counts) and once on `xcode-27` (the Xcode 27 preview image, a failure does not block),
+  then checks the bundle structure (`codesign --verify --strict`, `plutil -lint`, the icon files are present); there are no functional tests.
+- Every build's `Hoopa.zip` hangs off its run; pushing a `v*` tag publishes the `macos-26` build as a GitHub Release.
+- There is no certificate on the runner, so CI builds are ad hoc signed and not notarised, and the Accessibility grant is lost with every new build; for daily use build locally with `./build.sh`.
+
 ## Usage
 
 | Action | How |
 |---|---|
-| Show / hide the panel | The ☑ icon in the menu bar, or the global shortcut ⌃⌥T |
+| Show / hide the panel | The Hoopa icon in the menu bar, or the global shortcut ⌃⌥T |
 | Add a to-do | Type in the field and press Return |
 | Bind a page | Hover a to-do → click the ⌖ icon to enter pick mode |
 | Pick: bind a whole window | Move the mouse to highlight a window → click |
@@ -35,8 +41,21 @@ After the first launch:
 | Jump | Click the to-do row or the binding chip under it |
 | Rename | Double-click the to-do |
 | Rebind / unbind / delete | Context menu |
+| Collapse / expand | ⌃ at the top left of the panel collapses it into a pill; the ⌄ on the card, or its content, expands it |
+| Details while collapsed | Hover the pill to expand it into a card stack, move away to close; the scroll wheel or a click on a card behind brings it forward |
 | Keep the panel on top, show completed | The ⋯ menu at the top right |
 | Interface language | The ⋯ menu at the top right → Language (English by default, does not follow the system; switching relaunches the app) |
+
+## Icon
+
+The app icon and the menu bar icon are both generated from `scripts/icon-source.png` (transparent background); `build.sh` runs `scripts/icons.swift` on every build:
+
+- App icon: trim the transparent margin, centre on a square (5% padding on every side), scale to each size and pack into `Hoopa.icns`.
+  Since macOS 26 the system places an icon that is not a rounded square inside a grey rounded square.
+- Menu bar icon: the silhouette of the whole figure as a monochrome template image (the system tints it to the menu bar colours), the eyes cut out, 18pt high, plus @2x.
+  It is not split into black and white by brightness because that would cut away the dark outlines and scatter the pieces.
+
+To change the icon, replace that picture and build again.
 
 ## How a binding "remembers" a page
 
@@ -99,6 +118,9 @@ Sources/Hoopa/
 Resources/
   zh-Hans.lproj/             Simplified Chinese translation: the keys are the English strings in the code
   en.lproj/                  English plural rules (Localizable.stringsdict)
+scripts/
+  icon-source.png            The icon source picture (transparent background)
+  icons.swift                Generates the app and menu bar icons from the source picture; run by build.sh
 ```
 
 ## Diagnostics

@@ -11,6 +11,8 @@
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>Hoopa</string>
+	<key>CFBundleIconFile</key>
+	<string>Hoopa</string>
 	<key>CFBundleIdentifier</key>
 	<string>local.phantom.hoopa</string>
 	<key>CFBundleName</key>

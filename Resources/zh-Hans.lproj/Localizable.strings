@@ -5,7 +5,6 @@
 "%lld items" = "%lld 项";
 "Keep Panel on Top" = "面板置顶";
 "Show Completed" = "显示已完成";
-"Collapsed Style" = "收起样式";
 "Language" = "语言";
 "Accessibility Access: Granted" = "辅助功能权限：已授予";
 "Grant Accessibility Access…" = "授予辅助功能权限…";
@@ -18,12 +17,9 @@
 "No to-dos yet" = "还没有待办";
 "Pick a window / page with ⌖ and set a timer or date with ◔, then type and press ⌘Return.\nLater, click the chip to jump straight back to that page." = "先点 ⌖ 选好要绑定的窗口 / 页面、点 ◔ 设倒计时或日期，再输入内容按 ⌘回车。\n之后点一下芯片就能直接回到那个页面。";
 
-/* 收起样式 */
-"Pill" = "药丸";
-"Card Stack" = "卡片堆叠";
+/* 收起态 */
 "Expand" = "展开";
 "Back to %@" = "回到 %@";
-"Click to expand, drag to move" = "轻点展开，按住拖动";
 "Add a to-do" = "添加待办";
 "Bring to front" = "翻到前面";
 
