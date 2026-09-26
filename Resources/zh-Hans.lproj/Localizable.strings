@@ -68,6 +68,7 @@
 "Cancel" = "取消";
 "Set %lld min" = "选用 %lld min";
 "Set %@ %@" = "选用 %@ %@";
+"Set" = "选用";
 
 /* 菜单栏、提示 */
 "Hide Panel" = "隐藏面板";

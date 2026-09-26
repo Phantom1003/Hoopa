@@ -36,18 +36,22 @@ struct DuePicker: View {
                     }
                 }
             } else {
-                HStack(spacing: 6) {
-                    // Today / tomorrow / the day after: the interface language's relative words (English has no word for the day after and shows the date).
-                    ForEach(0..<3, id: \.self) { i in
-                        Button(TimeFormat.day(offsetDay(i), now: Date())) { setDay(i) }
-                            .glassButton(prominent: isDay(i)).controlSize(.small).fixedSize()
+                // Text lengths change with the interface language (English Tomorrow, Sep 28 are much wider than the Chinese forms), so the buttons neither size to content nor share one row, or they would overflow the panel:
+                // Today / tomorrow / the day after are three equal cells filling one row (in the interface language's relative words; English has no word for the day after and shows the date);
+                // below it the date field spans the row: the chosen full date (Sep 25, 2026 and the localized equivalent), click to open the calendar for another day.
+                VStack(spacing: 6) {
+                    HStack(spacing: 6) {
+                        ForEach(0..<3, id: \.self) { i in
+                            Button { setDay(i) } label: {
+                                Text(TimeFormat.day(offsetDay(i), now: Date())).lineLimit(1).frame(maxWidth: .infinity)
+                            }
+                            .glassButton(prominent: isDay(i)).controlSize(.small)
+                        }
                     }
-                    Spacer()
-                    // Other days: open the calendar. The text uses the month-day format (Sep 25 or the localized form) at a fixed width, so it does not jitter when the day changes.
                     Button { showCalendar = true } label: {
-                        Label(TimeFormat.monthDay(day), systemImage: "calendar")
-                            .monospacedDigit()
-                            .frame(width: 100)
+                        Label(TimeFormat.fullDate(day), systemImage: "calendar")
+                            .monospacedDigit().lineLimit(1)
+                            .frame(maxWidth: .infinity)
                     }
                     .glassButton(prominent: !(isDay(0) || isDay(1) || isDay(2))).controlSize(.small)
                     .popover(isPresented: $showCalendar) {
@@ -58,18 +62,23 @@ struct DuePicker: View {
             }
 
             HStack(spacing: 8) {
+                // The buttons on the left size to content; the main button on the right spells it out when there is room (Set Tomorrow 13:03), otherwise just "Set", never truncated or overflowing.
                 if spec != nil {
                     Button("Remove Time", role: .destructive) { spec = nil; onDone() }
-                        .glassButton().controlSize(.small)
+                        .glassButton().controlSize(.small).fixedSize()
                 }
-                Button("Cancel") { onDone() }.glassButton().controlSize(.small)
+                Button("Cancel") { onDone() }.glassButton().controlSize(.small).fixedSize()
                 Spacer()
                 Button(action: apply) {
-                    Text(tab == .countdown ? "Set \(minutes) min" : "Set \(TimeFormat.day(day, now: Date())) \(String(format: "%02d:%02d", hour, minute))")
-                        .monospacedDigit()
+                    ViewThatFits(in: .horizontal) {
+                        Text(tab == .countdown ? "Set \(minutes) min" : "Set \(TimeFormat.day(day, now: Date())) \(String(format: "%02d:%02d", hour, minute))")
+                        Text("Set")
+                    }
+                    .monospacedDigit()
                 }
                 .glassButton(prominent: true).controlSize(.small)
                 .keyboardShortcut(.return, modifiers: [])
+                .layoutPriority(1)      // give the main button the remaining width first, then decide between the long and the short label
             }
         }
         .font(.system(size: 12))

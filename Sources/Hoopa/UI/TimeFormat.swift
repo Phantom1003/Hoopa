@@ -64,6 +64,9 @@ enum TimeFormat {
         Calendar.current.isDate(d, equalTo: now, toGranularity: .year) ? monthDay.string(from: d) : yearMonthDay.string(from: d)
     }
 
+    /// The full date, always with the year: Sep 28, 2026 (the date field of the time popover).
+    static func fullDate(_ d: Date) -> String { yearMonthDay.string(from: d) }
+
     struct DueLabel {
         let text: String       // the chip's main text (countdown; "Overdue" once past due)
         let detail: String     // the secondary text (absolute time)
