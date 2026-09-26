@@ -83,7 +83,8 @@ rows and then "N more" (click it to expand):
   for what is left (a timer counts from its full length, a date from its last
   24 hours). The ring, an unbound ball and the countdown turn orange when the
   time is close and red when it has passed.
-* **Title · page name**, the page name only when both fit whole.
+* **The title**, one line. The ball's icon is all the row says about the
+  binding; the page name is on the chip in the expanded panel.
 * **The countdown** at the right edge, `Overdue` once the time has passed.
   The absolute time is on the time chip in the expanded panel.
 

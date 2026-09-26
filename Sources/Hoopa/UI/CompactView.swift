@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Collapsed: a mini list on a glass slab. One row per to-do: the ball (the to-do's head: the bound app's icon, a green fluffy ball when unbound; timed ones ringed by the time ring),
-/// title · page name, the countdown at the right end (orange when nearly due, red once overdue). With no to-dos at all the only row is "+ Add" (expands the panel and opens the composer); with to-dos it takes no row, creating goes through the expanded panel.
+/// the title, the countdown at the right end (orange when nearly due, red once overdue). The ball's icon is the only cue to what is bound, no page name: that is on the chip in the details. With no to-dos at all the only row is "+ Add" (expands the panel and opens the composer); with to-dos it takes no row, creating goes through the expanded panel.
 /// Same order as the panel (manual order; time order while sort by time is on), at most 6 rows, then "+N more" (opens the panel).
 /// Clicking a row: expands the panel and opens that to-do's details (jumping is the chip in the details, or the context menu); pointing at a row, the countdown at the right end gives way to ○, click it to mark done.
 /// Fixed width, independent of the content. Expanding is the ear outside the slab's left edge (see EarToggle). The glass is drawn by RootView's plate (collapsed, the plate is the slab), only the content lives here.
@@ -84,7 +84,7 @@ struct CompactView: View {
         .help("Add a to-do")
     }
 
-    /// A row: ball, title · page name …… countdown. A click expands the panel to the details (no direct jump: jumping is the chip in the details, or the context menu).
+    /// A row: ball, title …… countdown. A click expands the panel to the details (no direct jump: jumping is the chip in the details, or the context menu).
     /// Pointing at the row, the countdown at the right end fades out and ○ takes its place (like a mail list where the date turns into action buttons); click ○ to mark done. The ball stays a ball, never a button.
     /// ○ takes the countdown's slot, no extra column, the insets on both sides stay equal; untimed rows reserve the same width for ○, so the title does not shift on hover.
     private func row(_ t: TodoItem) -> some View {
@@ -160,11 +160,10 @@ struct CompactView: View {
 
     private func trimmed(_ t: TodoItem) -> String { t.title.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// title · page name: the page name is shown only when both fit, otherwise the title alone (truncated), so the page name is never cut to a character or two.
-    /// An empty title falls back to the page name, otherwise the grey placeholder.
+    /// The title, one line (truncated). An empty title falls back to the page name, otherwise the grey placeholder.
     private func titleLine(_ t: TodoItem) -> some View {
         let title = trimmed(t)
-        let heading = Group {
+        return Group {
             if !title.isEmpty {
                 Text(title)
             } else if let b = t.binding {
@@ -174,16 +173,6 @@ struct CompactView: View {
             }
         }
         .lineLimit(1).truncationMode(.tail)
-        return ViewThatFits(in: .horizontal) {
-            if let b = t.binding, !title.isEmpty {
-                HStack(spacing: 4) {
-                    heading.fixedSize()
-                    Text(verbatim: "·").foregroundStyle(Style.tertiary)
-                    Text(b.pageName).font(.system(size: 11)).foregroundStyle(Style.secondary).lineLimit(1).fixedSize()
-                }
-            }
-            heading
-        }
     }
 
     /// The countdown at the right end (refreshed every second; "Overdue" once past due). It gives way to ○ when the row is pointed at, so it carries no absolute-time tooltip: the absolute time is on the time chip in the details.
