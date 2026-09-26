@@ -1,34 +1,40 @@
 import SwiftUI
 
-/// Collapse ↔ expand: the panel's glass is a separate "plate". Expanding, it grows from the front card's (or the pill's) rect to the whole panel
-/// while the card content fades out, and the panel content appears once it has grown; collapsing reverses it: the panel content fades out first, the plate shrinks back to the card's rect, the card appears and the plate gives way to the card's own glass.
-/// The cards stacked behind do not move; they only fade in and out.
-/// The window grows first and shrinks once the animation is over (see FirstMouseHostingView.fitWindow); the content stays glued to the top left.
+/// Collapse ↔ expand: the whole window has a single glass "plate". Expanding, it grows from the collapsed slab's rect to the whole panel
+/// while the slab's content fades out, and the panel content appears once it has grown; collapsing reverses it: the panel content fades out first, the plate shrinks back to the slab's rect, the slab's content appears.
+/// The collapsed list draws no glass of its own: with two pieces of glass stacked, each one's shadow shows through the other. The plate spans the ear's column on the left,
+/// and the ear is cut out of its left side by the window's layer mask (see FirstMouseHostingView), so ear and panel are one piece of glass from the start;
+/// Liquid Glass only understands standard shapes (it does not redraw custom shapes while they animate, and two pieces do not merge), so the shape is always a rounded rectangle.
+/// The ear is out only while the mouse is on the window and slides back to the edge when it leaves. The window grows first and shrinks once the animation is over (see FirstMouseHostingView.fitWindow); the content stays glued to the top left.
 struct RootView: View {
     @EnvironmentObject var coordinator: AppCoordinator
-    /// The rect and corner radius of the collapsed front card (or the pill), reported by CompactView: the plate grows out of here / shrinks back here.
-    @State private var front = FrontGeometry(rect: CGRect(x: 0, y: 0, width: CompactView.cardWidth, height: 80), radius: 12)
+    /// The collapsed slab's rect (root view coordinates) and corner radius, reported by CompactView: the plate grows out of here / shrinks back here.
+    @State private var front = FrontGeometry(rect: CGRect(x: Ear.width, y: 0, width: 260, height: 130), radius: CompactView.radius)
     /// Collapsed, the panel content moves off-window but stays alive: expanding does not rebuild the composer and the list (a rebuild stalls 100ms and the animation skips its start).
     @State private var parked: Bool
+    /// The ear is out (the mouse is on the window); it slides back a little after the mouse leaves, so brushing the edge does not flicker.
+    @State private var earShown = false
+    @State private var earWork: DispatchWorkItem?
 
     init(startCompact: Bool) { _parked = State(initialValue: startCompact) }
 
-    /// When the plate's rect animates: at the moment of expanding / collapsing, and when the collapsed front card's rect changes; while expanded, the window being dragged larger or smaller is followed directly, not animated.
+    /// When the plate's rect animates: at the moment of expanding / collapsing, and when the collapsed slab's rect changes; while expanded, the window being dragged larger or smaller is followed directly, not animated.
     private struct PlateKey: Equatable { var expanded: Bool; var front: FrontGeometry? }
 
     var body: some View {
         // The panel size comes from the window (coordinator.panelSize), not GeometryReader: that reports the root view's ideal size as 10×10 and the collapsed window would shrink to nothing.
+        // Leave the ear's width on the left of the window: the panel and the collapsed slab both start right of the ear.
         let expanded = !coordinator.isCompact
-        let plate = expanded ? FrontGeometry(rect: CGRect(origin: .zero, size: coordinator.panelSize), radius: 18) : front
+        let panelRect = CGRect(x: Ear.width, y: 0, width: coordinator.panelSize.width - Ear.width, height: coordinator.panelSize.height)
+        let plate = expanded ? FrontGeometry(rect: panelRect, radius: 18) : front
         ZStack(alignment: .topLeading) {
+                // The plate: one rounded-rectangle piece of glass spanning the ear's column on the left (the rect starts at the window's left edge, the ear is cut out by the mask). Present in both shapes; collapsed, it is the slab itself.
                 Color.clear
                     .glass(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
-                    .frame(width: plate.rect.width, height: plate.rect.height)
-                    .offset(x: plate.rect.minX, y: plate.rect.minY)
+                    .frame(width: plate.rect.width + Ear.width, height: plate.rect.height)
+                    .offset(x: plate.rect.minX - Ear.width, y: plate.rect.minY)
                     .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
                                value: PlateKey(expanded: expanded, front: expanded ? nil : front))
-                    .opacity(expanded ? 1 : 0)
-                    .animation(expanded ? Motion.plateIn : Motion.plateOut, value: expanded)
                     .allowsHitTesting(false)
                 if coordinator.isCompact {
                     CompactView()
@@ -41,9 +47,10 @@ struct RootView: View {
                 // then it is clipped to the plate: expanding, the content is uncovered by the growing glass; collapsing, it is covered again, and the panel is never empty.
                 // clipShape also applies to the AppKit-hosted list / text fields (clipped to the rect).
                 ExpandedView()
-                    .frame(width: coordinator.panelSize.width, height: coordinator.panelSize.height, alignment: .topLeading)
+                    .frame(width: panelRect.width, height: panelRect.height, alignment: .topLeading)
                     .frame(width: plate.rect.width, height: plate.rect.height, alignment: .topLeading)
                     .clipShape(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
+                    .offset(x: plate.rect.minX, y: plate.rect.minY)
                     .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
                                value: PlateKey(expanded: expanded, front: expanded ? nil : front))
                     .offset(x: parked ? -4000 : 0)
@@ -52,10 +59,15 @@ struct RootView: View {
                     .allowsHitTesting(expanded)
                     .animation(expanded ? Motion.panelContentIn : Motion.panelContentOut, value: expanded)
                     .zIndex(2)
+                // The arrow on the ear: at the same spot in both shapes.
+                EarToggle(shown: earShown)
+                    .offset(y: Ear.top)
+                    .zIndex(3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .coordinateSpace(name: "root")     // the slab's rect is reported in this space and the plate is placed by it
+        .onHover(perform: hover)
         .onPreferenceChange(FrontGeometryKey.self) { f in if f.rect.width > 1 { front = f } }
-        .onPreferenceChange(CompactSizesKey.self) { coordinator.compactSizes = $0 }
         .onChange(of: coordinator.isCompact) { _, compact in
             if compact {
                 // Move away only after the panel content has faded out and the plate has shrunk back.
@@ -65,26 +77,37 @@ struct RootView: View {
             }
         }
         .animation(Motion.panelShrink, value: coordinator.isCompact)
-        .animation(Motion.step, value: coordinator.stage)
+    }
+
+    /// The ear slides out as soon as the mouse arrives and back 0.5 s after it leaves. The ear itself is cut out by the window mask; only the arrow and the window notification live here (see FloatingPanel.setEar).
+    private func hover(_ inside: Bool) {
+        earWork?.cancel()
+        let work = DispatchWorkItem {
+            guard earShown != inside else { return }
+            earShown = inside
+            coordinator.onEarChange?(inside, Motion.earBusy)
+        }
+        earWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + (inside ? 0 : 0.5), execute: work)
     }
 }
 
-/// The rect (window coordinates) and corner radius of the collapsed front card (or the pill).
+/// The collapsed slab's rect (root view coordinates) and corner radius.
 struct FrontGeometry: Equatable {
     var rect: CGRect
     var radius: CGFloat
 }
 
 struct FrontGeometryKey: PreferenceKey {
-    static let defaultValue = FrontGeometry(rect: .zero, radius: 12)
-    /// Only the front card reports a non-empty rect; the rest are ignored.
+    static let defaultValue = FrontGeometry(rect: .zero, radius: CompactView.radius)
+    /// Only the slab reports a non-empty rect.
     static func reduce(value: inout FrontGeometry, nextValue: () -> FrontGeometry) {
         let next = nextValue()
         if next.rect.width > 0 { value = next }
     }
 }
 
-/// Expanded: the input pill + the list of sticky-note cards.
+/// Expanded: the list of sticky-note cards; the composer does not occupy the top by default, + brings it up.
 struct ExpandedView: View {
     @EnvironmentObject var store: TodoStore
     @EnvironmentObject var permissions: PermissionState
@@ -98,7 +121,8 @@ struct ExpandedView: View {
         VStack(spacing: 0) {
             header
             if !permissions.accessibility { permissionBanner }
-            InputPill().padding(.horizontal, 12)
+            // The composer is hidden by default and + brings it up; always shown when there are no to-dos at all.
+            if coordinator.adding || store.active.isEmpty { InputPill().padding(.horizontal, 12) }
             list
         }
         .frame(minWidth: 300, minHeight: 320)
@@ -110,12 +134,12 @@ struct ExpandedView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            CompactToggle(collapse: true)
             Text("Hoopa").font(.system(size: 13, weight: .semibold)).foregroundStyle(Style.text)
             Spacer()
             if !store.active.isEmpty {
                 Text("\(store.active.count) items").font(.caption).foregroundStyle(Style.secondary)
             }
+            addButton
             sortButton
             Menu {
                 Toggle("Keep Panel on Top", isOn: Binding(
@@ -140,7 +164,6 @@ struct ExpandedView: View {
             .menuIndicator(.hidden)
             .fixedSize()
         }
-        // The left and top insets match the collapsed card: the collapse button lands exactly where the card's expand button is (see CompactToggle).
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 8)
@@ -160,6 +183,17 @@ struct ExpandedView: View {
         .help(sortByTime ? "Sorted by time · click for manual order" : "Sort by time (soonest first)")
     }
 
+    /// New: shows / hides the composer at the top of the list.
+    private var addButton: some View {
+        Button { coordinator.adding.toggle() } label: {
+            Image(systemName: coordinator.adding ? "plus.circle.fill" : "plus.circle")
+                .foregroundStyle(coordinator.adding ? Style.accent : Style.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Add a to-do")
+    }
+
     private var permissionBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
@@ -174,33 +208,38 @@ struct ExpandedView: View {
     }
 
     private var list: some View {
-        let items = sortByTime ? store.byUrgency : store.active
-        return ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 4) {
-                    if items.isEmpty && (!showDone || store.done.isEmpty) {
-                        emptyState
-                    }
-                    ForEach(items) { todo in
-                        TodoCard(todo: todo)
-                            .reorderable(todo.id) { dragged, after in move(dragged, relativeTo: todo.id, after: after) }
-                    }
-                    if showDone && !store.done.isEmpty {
-                        HStack {
-                            Text("Completed · \(store.done.count)").font(.caption).foregroundStyle(Style.secondary)
-                            Spacer()
+                // Grouped by day while sorted by time; the groups move with the clock (a to-do due today moves into "Overdue" once past), recomputed every minute.
+                TimelineView(.everyMinute) { ctx in
+                    let items = sortByTime ? store.byUrgency : store.active
+                    LazyVStack(spacing: 4) {
+                        if items.isEmpty && (!showDone || store.done.isEmpty) {
+                            emptyState
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.top, 10)
-                        ForEach(store.done) { todo in
-                            TodoCard(todo: todo)
+                        if sortByTime {
+                            ForEach(DayGroup.split(items, now: ctx.date)) { group in
+                                header(group.section.title)
+                                ForEach(group.items) { todo in card(todo) }
+                            }
+                        } else {
+                            ForEach(items) { todo in card(todo) }
+                        }
+                        if showDone && !store.done.isEmpty {
+                            header("Completed · \(store.done.count)")
+                            ForEach(store.done) { todo in
+                                TodoCard(todo: todo, selected: coordinator.selectedID == todo.id)
+                            }
                         }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    // A click on the space between cards: closes the open details.
+                    .contentShape(Rectangle())
+                    .onTapGesture { coordinator.selectedID = nil }
+                    // While sorted by time (including the click on the toggle itself) every order change animates, so it is visible where a card went; manual order stays as it is.
+                    .animation(Self.reorder, value: sortByTime ? items.map(\.id) : nil)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                // While sorted by time (including the click on the toggle itself) every order change animates, so it is visible where a card went; manual order stays as it is.
-                .animation(Self.reorder, value: sortByTime ? items.map(\.id) : nil)
             }
             .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
@@ -209,7 +248,27 @@ struct ExpandedView: View {
                 guard let added = new.first(where: { !old.contains($0) }) else { return }
                 DispatchQueue.main.async { withAnimation(Self.reorder) { proxy.scrollTo(added) } }
             }
+            // Opening a to-do's details from the collapsed list: scroll to it.
+            .onChange(of: coordinator.selectedID) { _, id in
+                guard let id else { return }
+                DispatchQueue.main.async { withAnimation(Self.reorder) { proxy.scrollTo(id) } }
+            }
         }
+    }
+
+    private func card(_ todo: TodoItem) -> some View {
+        TodoCard(todo: todo, selected: coordinator.selectedID == todo.id)
+            .reorderable(todo.id) { dragged, after in move(dragged, relativeTo: todo.id, after: after) }
+    }
+
+    /// The small heading of a group (Overdue / Today / …, Completed).
+    private func header(_ title: LocalizedStringKey) -> some View {
+        HStack {
+            Text(title).font(.caption).foregroundStyle(Style.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
     }
 
     /// Drag to reorder. Dragging out of time order while sorted by time switches back to manual order as dragged, with a toast.
@@ -225,7 +284,7 @@ struct ExpandedView: View {
         VStack(spacing: 8) {
             Image(systemName: "scope").font(.system(size: 28)).foregroundStyle(Style.secondary)
             Text("No to-dos yet").font(.subheadline).foregroundStyle(Style.secondary)
-            Text("Pick a window / page with ⌖ and set a timer or date with ◔, then type and press ⌘Return.\nLater, click the chip to jump straight back to that page.")
+            Text("Pick a window / page with ⌖ and set a timer or date with ◔, then type and press Return.\nLater, click the chip to jump straight back to that page.")
                 .font(.caption).foregroundStyle(Style.tertiary)
                 .multilineTextAlignment(.center)
         }
@@ -252,20 +311,76 @@ struct ExpandedView: View {
     }
 }
 
-/// The collapse / expand button: "collapse" (arrow up) is leftmost in the expanded panel's title bar, "expand" (arrow down) leftmost in the collapsed card's first row.
-/// The window's top left corner does not move when switching, both sit at the top left with the same insets, so they land on the same spot: after a click the same button is still under the mouse, repeated clicks only toggle,
-/// never hitting the done box or another button. As tall as a chip (25), so its row is the same height in both shapes and the button sits at the same vertical position.
-struct CompactToggle: View {
-    let collapse: Bool
+/// The groups while sorted by time: Overdue / Today / Tomorrow / Later / No time.
+struct DayGroup: Identifiable {
+    enum Section: Hashable, CaseIterable {
+        case overdue, today, tomorrow, later, unscheduled
+        var title: LocalizedStringKey {
+            switch self {
+            case .overdue: return "Overdue"
+            case .today: return "Today"
+            case .tomorrow: return "Tomorrow"
+            case .later: return "Later"
+            case .unscheduled: return "Unscheduled"
+            }
+        }
+    }
+    let section: Section
+    let items: [TodoItem]
+    var id: Section { section }
+
+    /// Groups in the given order; empty groups are left out.
+    static func split(_ items: [TodoItem], now: Date) -> [DayGroup] {
+        var groups: [Section: [TodoItem]] = [:]
+        for t in items {
+            let s: Section
+            if let d = t.due {
+                if TimeFormat.label(d, now: now).overdue {
+                    s = .overdue
+                } else {
+                    let off = TimeFormat.dayOffset(d.date, now: now)
+                    s = off <= 0 ? .today : (off == 1 ? .tomorrow : .later)
+                }
+            } else {
+                s = .unscheduled
+            }
+            groups[s, default: []].append(t)
+        }
+        return Section.allCases.compactMap { s in groups[s].map { DayGroup(section: s, items: $0) } }
+    }
+}
+
+/// Where the ear sits: the window leaves this much room on the left, the panel / slab starts right of it. Below the window's corner radius (18): the plate glass in that column is rounded down to 18,
+/// straight below that, so the left edge of the ear the mask cuts out is the glass's own edge.
+enum Ear {
+    static let width: CGFloat = 18
+    static let top: CGFloat = 18
+    static let height: CGFloat = 26
+    static let radius: CGFloat = 8
+}
+
+/// The arrow on the collapse / expand ear: the ear is the small tab outside the left edge of the panel (expanded) / slab (collapsed), at exactly the same spot in both shapes:
+/// after a click the same ear is still under the mouse, repeated clicks only toggle and never hit the done box or another button. Arrow down means expand, arrow up means collapse.
+/// While the ear is folded back the arrow fades out and ignores clicks.
+struct EarToggle: View {
+    var shown = true
     @EnvironmentObject var coordinator: AppCoordinator
 
     var body: some View {
-        Button { coordinator.isCompact = collapse } label: {
-            Image(systemName: collapse ? "chevron.up" : "chevron.down").font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Style.secondary).frame(width: 16, height: 25).contentShape(Rectangle())
+        Button { coordinator.isCompact.toggle() } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Style.secondary)
+                .rotationEffect(.degrees(coordinator.isCompact ? 0 : 180))
+                .frame(width: Ear.width, height: Ear.height)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(collapse ? "Collapse" : "Expand")
+        .help(coordinator.isCompact ? "Expand" : "Collapse")
+        .opacity(shown ? 1 : 0)
+        .allowsHitTesting(shown)
+        .animation(.easeInOut(duration: 0.2), value: coordinator.isCompact)
+        .animation(shown ? Motion.chevronIn : Motion.chevronOut, value: shown)
     }
 }
 

@@ -14,23 +14,24 @@ enum Style {
     static let overdue = Color.red
 }
 
-/// The timing of collapse / expand and pill ↔ card: one step at a time, clearly in sequence.
+/// The timing of collapse / expand.
 enum Motion {
-    /// Pill → card → card stack, one morph per step; the next starts once the previous has mostly played.
-    static let step = Animation.smooth(duration: 0.3)
-    static let stepGap: TimeInterval = 0.28
-    static let stepBusy: TimeInterval = 0.4
-    /// Expand: the plate grows from the front card to the whole panel, the panel content is there from the start and is uncovered by the growing glass; the card fades out meanwhile.
-    static let plateIn = Animation.easeOut(duration: 0.1)
+    /// The ear slides out / back (the mask's Core Animation and the arrow's fade share this duration).
+    static let earDuration: TimeInterval = 0.22
+    static let ear = Animation.easeOut(duration: earDuration)
+    static let earBusy: TimeInterval = 0.3
+    /// The arrow on the ear: fades in only once the ear is out; disappears before the ear when it folds back.
+    static let chevronIn = Animation.easeOut(duration: 0.12).delay(0.1)
+    static let chevronOut = Animation.easeIn(duration: 0.1)
+    /// Expand: the plate grows from the collapsed slab to the whole panel, the panel content is there from the start and is uncovered by the growing glass; the slab's content fades out meanwhile.
     static let panelGrow = Animation.smooth(duration: 0.36)
     static let compactOut = Animation.easeOut(duration: 0.12)
     static let panelContentIn = Animation.easeOut(duration: 0.15)
     static let expandBusy: TimeInterval = 0.5
-    /// Collapse: the plate shrinks back to the card's rect, covering the panel content while it fades out; then the card appears and the plate gives way to the card's own glass.
+    /// Collapse: the plate shrinks back to the slab's rect, covering the panel content while it fades out; then the slab's content appears.
     static let panelShrink = Animation.smooth(duration: 0.32)
     static let panelContentOut = Animation.easeIn(duration: 0.28)
     static let compactIn = Animation.easeOut(duration: 0.15).delay(0.26)
-    static let plateOut = Animation.easeIn(duration: 0.1).delay(0.3)
     static let parkAfter: TimeInterval = 0.4      // move out of the window only after the panel content has faded and the plate has shrunk
     static let collapseBusy: TimeInterval = 0.55
 }
@@ -55,11 +56,16 @@ extension View {
 }
 
 /// Liquid Glass background (glassEffect on macOS 26+), a translucent material on older systems.
+/// A nearly invisible tint under the glass: Liquid Glass with a custom shape writes no pixels into the window at all (and does not redraw while the custom shape animates),
+/// so a transparent window treats those areas as empty and lets clicks through to the window behind (standard shapes write a little, which is why it used to be fine). With the tint, wherever the glass is, clicks and drags are caught.
+/// Shapes are always standard (rounded rectangle, capsule); any other outline (the ear) is cut by the window's layer mask, see FirstMouseHostingView. glassEffectUnion does not merge, do not use it.
 struct GlassBackground<S: Shape>: ViewModifier {
     let shape: S
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular, in: shape)
+            content
+                .background(shape.fill(Color.primary.opacity(0.03)))
+                .glassEffect(.regular, in: shape)
         } else {
             content
                 .background(shape.fill(.regularMaterial))

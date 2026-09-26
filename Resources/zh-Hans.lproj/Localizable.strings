@@ -18,17 +18,23 @@
 "Grant" = "授权";
 "Completed · %lld" = "已完成 · %lld";
 "No to-dos yet" = "还没有待办";
-"Pick a window / page with ⌖ and set a timer or date with ◔, then type and press ⌘Return.\nLater, click the chip to jump straight back to that page." = "先点 ⌖ 选好要绑定的窗口 / 页面、点 ◔ 设倒计时或日期，再输入内容按 ⌘回车。\n之后点一下芯片就能直接回到那个页面。";
+"Today" = "今天";
+"Tomorrow" = "明天";
+"Later" = "更晚";
+"Unscheduled" = "未安排时间";
+"Pick a window / page with ⌖ and set a timer or date with ◔, then type and press Return.\nLater, click the chip to jump straight back to that page." = "先点 ⌖ 选好要绑定的窗口 / 页面、点 ◔ 设倒计时或日期，再输入标题按回车。\n之后点一下芯片就能直接回到那个页面。";
 
 /* 收起态 */
 "Expand" = "展开";
 "Back to %@" = "回到 %@";
 "Add a to-do" = "添加待办";
-"Bring to front" = "翻到前面";
+"%lld more" = "还有 %lld 条";
+"Show details" = "查看详情";
 
 /* 新建待办 */
-"Add a to-do… (⌘Return to add)" = "添加待办…（⌘回车提交）";
-"Add (⌘Return)" = "添加（⌘回车）";
+"Add a to-do…" = "添加待办…";
+"Add (Return)" = "添加（回车）";
+"Close" = "关闭";
 "Will bind to:\n%@\nClick to choose again" = "将绑定到：%@\n点击重新选择";
 "Bind Window / Page" = "绑定窗口 / 页面";
 "Pick the window / page to bind, then type the to-do" = "先选好要绑定的窗口 / 页面，再输入内容";
@@ -43,6 +49,7 @@
 "Rebind" = "重新绑定";
 "Delete" = "删除";
 "To-do" = "待办内容";
+"Notes" = "详情";
 "Jump to Bound Page" = "跳转到绑定页面";
 "Rebind…" = "重新绑定…";
 "Unbind" = "解除绑定";
@@ -52,6 +59,8 @@
 "Mark as Done" = "标记为完成";
 "Mark as done" = "标记为完成";
 "Mark as Not Done" = "标记为未完成";
+"Mark as not done" = "标记为未完成";
+"Overdue" = "已逾期";
 
 /* 时间面板 */
 "Timer" = "倒计时";

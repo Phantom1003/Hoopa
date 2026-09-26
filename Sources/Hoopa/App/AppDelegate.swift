@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         coordinator.onStartPicking = { [weak self] todo in self?.startPicking(for: todo) }
         coordinator.onAlwaysOnTopChanged = { [weak self] on in self?.panel.setAlwaysOnTop(on) }
         coordinator.onQuit = { NSApp.terminate(nil) }
-        // Collapsed at the last quit: launch straight into the pill without the collapse animation (onCompactChanged is not hooked up yet).
+        // Collapsed at the last quit: launch straight into the collapsed state without the collapse animation (onCompactChanged is not hooked up yet).
         let startCompact = UserDefaults.standard.bool(forKey: "compact")
         if startCompact { coordinator.restoreCompact() }
 
@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             self?.panel.setCompact(compact)
             UserDefaults.standard.set(compact, forKey: "compact")
         }
-        coordinator.onMorph = { [weak self] busy, target in self?.panel.noteMorph(busy, target: target) }
+        coordinator.onEarChange = { [weak self] shown, busy in self?.panel.setEar(shown: shown, busy: busy) }
         UNUserNotificationCenter.current().delegate = self
 
         setupStatusItem()

@@ -26,9 +26,14 @@ enum TimeFormat {
         }.joined(separator: " ")
     }
 
-    /// Remaining time, formatted like duration; stops at 0 once past, never negative (the time capsule's colour signals overdue).
+    /// Remaining time, formatted like duration; stops at 0 once past, never negative.
     static func remaining(until end: Date, now: Date) -> String {
         duration(max(0, Int(end.timeIntervalSince(now).rounded())))
+    }
+
+    /// The countdown column: the remaining time until due; past due it does not show 0 but says "Time's up" (timers) / "Overdue" (date-times), in red, with the absolute time following as usual.
+    private static func countdown(until end: Date, now: Date, timer: Bool) -> String {
+        end > now ? remaining(until: end, now: now) : (timer ? String(localized: "Time's up") : String(localized: "Overdue"))
     }
 
     static func clockTime(_ d: Date) -> String { clock.string(from: d) }
@@ -60,7 +65,7 @@ enum TimeFormat {
     }
 
     struct DueLabel {
-        let text: String       // the chip's main text (countdown)
+        let text: String       // the chip's main text (countdown; "Time's up" / "Overdue" once past due)
         let detail: String     // the secondary text (absolute time)
         let overdue: Bool
         let urgent: Bool       // within 10 minutes
@@ -70,17 +75,17 @@ enum TimeFormat {
         switch due {
         case .countdown(let end, _):
             let left = end.timeIntervalSince(now)
-            return DueLabel(text: remaining(until: end, now: now),
+            return DueLabel(text: countdown(until: end, now: now, timer: true),
                             detail: absolute(end, now: now), overdue: left < 0, urgent: left >= 0 && left < 600)
         case .date(let d):
             // A plain date from old data: the countdown runs to the end of that day, the absolute time is the date only.
             let cal = Calendar.current
             let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: d)) ?? d
-            return DueLabel(text: remaining(until: end, now: now),
+            return DueLabel(text: countdown(until: end, now: now, timer: false),
                             detail: day(d, now: now), overdue: end < now, urgent: cal.isDate(d, inSameDayAs: now))
         case .dateTime(let d):
             let left = d.timeIntervalSince(now)
-            return DueLabel(text: remaining(until: d, now: now),
+            return DueLabel(text: countdown(until: d, now: now, timer: false),
                             detail: absolute(d, now: now), overdue: left < 0, urgent: left >= 0 && left < 3600)
         }
     }

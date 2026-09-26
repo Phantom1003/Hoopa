@@ -134,26 +134,38 @@ enum DueSpec: Equatable {
 
 struct TodoItem: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
-    var title: String
+    var title: String              // one line; the card and the collapsed list show only this
+    var notes: String = ""         // the notes (multi-line), visible once the to-do is opened
     var isDone: Bool = false
     var createdAt: Date = Date()
     var completedAt: Date? = nil
     var binding: ContextBinding? = nil
     var due: Due? = nil
 
-    init(title: String, binding: ContextBinding? = nil, due: Due? = nil) {
+    init(title: String, notes: String = "", binding: ContextBinding? = nil, due: Due? = nil) {
         self.title = title
+        self.notes = notes
         self.binding = binding
         self.due = due
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, isDone, createdAt, completedAt, binding, due }
+    private enum CodingKeys: String, CodingKey { case id, title, notes, isDone, createdAt, completedAt, binding, due }
 
     /// A binding in an old format that cannot be read counts as unbound; the whole file must stay readable.
+    /// Old data may hold multi-line content: the first line becomes the title, the rest the notes.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
-        title = try c.decode(String.self, forKey: .title)
+        let raw = try c.decode(String.self, forKey: .title)
+        var notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        if let nl = raw.firstIndex(of: "\n") {
+            title = raw[..<nl].trimmingCharacters(in: .whitespacesAndNewlines)
+            let rest = raw[raw.index(after: nl)...].trimmingCharacters(in: .whitespacesAndNewlines)
+            if !rest.isEmpty { notes = notes.isEmpty ? rest : rest + "\n" + notes }
+        } else {
+            title = raw
+        }
+        self.notes = notes
         isDone = try c.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)

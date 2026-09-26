@@ -3,18 +3,24 @@ import SwiftUI
 
 /// The always-floating panel. Non-activating (like Spotlight): hovering and clicking work right away without a click to activate the app first;
 /// a jump does not first pull the focus to Hoopa and then away. When input is needed the panel becomes the key window by itself without activating the whole app.
-/// Two shapes: collapsed (a pill that becomes a card on hover, sized to its content) or an expanded, resizable panel; the top left corner stays put when switching.
+/// Two shapes: collapsed (a glass slab sized to its content) or an expanded, resizable panel; the top left corner stays put when switching.
 final class FloatingPanel: NSPanel {
-    static let expandedDefault = NSSize(width: 360, height: 480)
-    static let expandedMin = NSSize(width: 300, height: 320)
-    private var expandedSize = FloatingPanel.expandedDefault
+    // The window has the ear's column (Ear.width) on the left; the panel proper is that much narrower than the window.
+    static let expandedDefault = NSSize(width: 360 + Ear.width, height: 480)
+    static let expandedMin = NSSize(width: 300 + Ear.width, height: 320)
+    /// The size of the expanded panel. AppKit's autosave under "HoopaPanel" stores the window size at the time, which after quitting collapsed is the collapsed size,
+    /// so the expanded size is stored in the preferences separately: after a relaunch the panel expands to its last size instead of the minimum.
+    private var expandedSize: NSSize {
+        get { UserDefaults.standard.string(forKey: "expandedSize").map(NSSizeFromString) ?? FloatingPanel.expandedDefault }
+        set { UserDefaults.standard.set(NSStringFromSize(newValue), forKey: "expandedSize") }
+    }
     private let hosting: FirstMouseHostingView<AnyView>
     /// The window size changed (including the growth at the moment of expanding); report it to the UI layer.
     var onResize: ((CGSize) -> Void)?
 
     init(contentView: FirstMouseHostingView<AnyView>) {
         hosting = contentView
-        // Borderless: the system window frame would draw a dark rounded rectangle around the pill, so SwiftUI draws the whole appearance itself (Liquid Glass).
+        // Borderless: the system window frame would draw a dark rounded rectangle around the glass, so SwiftUI draws the whole appearance itself (Liquid Glass).
         super.init(contentRect: NSRect(origin: .zero, size: FloatingPanel.expandedDefault),
                    styleMask: [.borderless, .resizable, .nonactivatingPanel],
                    backing: .buffered, defer: false)
@@ -35,7 +41,7 @@ final class FloatingPanel: NSPanel {
             let f = screen.visibleFrame
             setFrameOrigin(NSPoint(x: f.midX - 180, y: f.maxY - 520))
         }
-        expandedSize = frame.size
+        if UserDefaults.standard.string(forKey: "expandedSize") == nil { rememberExpandedSize() }
         NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: self, queue: .main) { [weak self] _ in
             guard let self else { return }
             self.onResize?(self.frame.size)
@@ -79,24 +85,19 @@ final class FloatingPanel: NSPanel {
         level = on ? .floating : .normal
     }
 
-    /// Collapse / expand, top left corner fixed. Collapsing sizes the window to the content (pill / card) and shrinks it once the collapse animation is over; expanding grows it to the panel size at once
-    /// (the extra area is transparent and click-through, invisible), the card moves to its list position and the panel glass grows out of the card.
+    /// Collapse / expand, top left corner fixed. Collapsing sizes the window to the content and shrinks it once the collapse animation is over; expanding grows it to the panel size at once
+    /// (the extra area is transparent and click-through, invisible) and the panel glass then grows out of the slab.
     func setCompact(_ compact: Bool, animated: Bool = true) {
         if compact {
-            expandedSize = frame.size
+            rememberExpandedSize()
             styleMask.remove(.resizable)
             applyChrome()
             minSize = NSSize(width: 40, height: 30)
-            hosting.capsule = true
             if animated { hosting.noteMorph(Motion.collapseBusy) }
             hosting.autoFit = true          // shrinking waits for the collapse animation, see fitWindow
             if !animated { hosting.fitWindow(immediately: true) }
         } else {
             hosting.autoFit = false
-            // Add the rounded mask only once the glass has grown fully, so the corners of the growing glass are not clipped.
-            DispatchQueue.main.asyncAfter(deadline: .now() + (animated ? Motion.expandBusy : 0)) { [hosting] in
-                if !hosting.autoFit { hosting.capsule = false }
-            }
             styleMask.insert(.resizable)
             applyChrome()
             minSize = FloatingPanel.expandedMin
@@ -113,14 +114,21 @@ final class FloatingPanel: NSPanel {
         if animated { trackShadow(for: compact ? Motion.collapseBusy : Motion.expandBusy) } else { invalidateShadow() }
     }
 
-    /// The collapsed state starts a morph (pill ↔ card ↔ stack): during it the window only grows and the shadow keeps refreshing;
-    /// when the end size is known the window grows to it right away instead of following the content frame by frame (resizing the window per frame leaves the content a frame behind and jittering).
-    func noteMorph(_ busy: TimeInterval, target: CGSize? = nil) {
-        hosting.noteMorph(busy, target: target)
-        trackShadow(for: busy)
+    /// Remember the size while the window is the expanded panel (not when launching at the collapsed size: that is always smaller than the panel's minimum).
+    private func rememberExpandedSize() {
+        guard frame.width >= FloatingPanel.expandedMin.width, frame.height >= FloatingPanel.expandedMin.height else { return }
+        expandedSize = frame.size
     }
 
     private var shadowTimer: Timer?
+    private var earShown = false
+
+    /// The ear slides out / back: the ear part of the mask slides (Core Animation) and the shadow refreshes.
+    func setEar(shown: Bool, busy: TimeInterval) {
+        earShown = shown
+        hosting.earMask = shown
+        trackShadow(for: busy)
+    }
 
     /// Keeps the window shadow refreshing during a morph: a transparent window's shadow follows the content's shape and keeps the old one unless refreshed.
     func trackShadow(for duration: TimeInterval) {
@@ -136,32 +144,26 @@ final class FloatingPanel: NSPanel {
 /// When the panel is not the key window the first click also goes straight to SwiftUI instead of only making the window key;
 /// pressing on empty space (not a button / text field) drags the whole window (a borderless window has no title bar to drag).
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
-    /// Collapsed (no mask, the content draws its own shape); expanded gets an 18pt rounded mask.
-    var capsule = false { didSet { needsLayout = true } }
+    /// The ear is out: the ear part of the mask slides out (animated).
+    var earMask = false { didSet { updateMask(animated: true) } }
     /// Collapsed: the window is sized to the content. NSHostingView's own preferredContentSize does nothing here, so measure and set it ourselves.
     var autoFit = false { didSet { needsLayout = true } }
     private var fitting = false
     private var shrinkPending = false
     private var busyUntil = Date.distantPast
-    private var morphTarget: CGSize?
 
-    /// A morph is playing: until busy seconds pass the window only grows; target is the content size at the end of the morph.
-    func noteMorph(_ busy: TimeInterval, target: CGSize? = nil) {
+    /// A collapse animation is playing: until busy seconds pass, the window only grows.
+    func noteMorph(_ busy: TimeInterval) {
         busyUntil = max(busyUntil, Date().addingTimeInterval(busy))
-        morphTarget = target
     }
 
     /// Sizes the window to the content's ideal size, top left corner fixed. Growing happens at once (the extra area is transparent, invisible);
-    /// Shrinking waits until every morph is over (see noteMorph), so glass and cards still folding are not clipped.
+    /// shrinking waits until the animation is over (see noteMorph), so glass still folding is not clipped.
     func fitWindow(immediately: Bool = false) {
         guard autoFit, let w = window, !fitting else { return }
-        var size = fittingSize
+        let size = fittingSize
         guard size.width > 1, size.height > 1 else { return }
         if immediately { resizeWindow(to: size); return }
-        // The content grows frame by frame during a morph: grow the window to the end size directly.
-        if busyUntil > Date(), let t = morphTarget {
-            size = NSSize(width: max(size.width, t.width), height: max(size.height, t.height))
-        }
         let cur = w.frame.size
         let grown = NSSize(width: max(cur.width, size.width), height: max(cur.height, size.height))
         if grown != cur { resizeWindow(to: grown) }
@@ -174,7 +176,7 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
         DispatchQueue.main.asyncAfter(deadline: .now() + max(busyUntil.timeIntervalSinceNow, 0) + 0.05) { [weak self] in
             guard let self else { return }
             self.shrinkPending = false
-            if self.busyUntil > Date() { self.scheduleShrink(); return }   // another morph started meanwhile
+            if self.busyUntil > Date() { self.scheduleShrink(); return }   // another animation started meanwhile
             self.fitWindow(immediately: true)     // to the content size at that moment
         }
     }
@@ -192,16 +194,42 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override var mouseDownCanMoveWindow: Bool { true }
 
     /// SwiftUI's clipShape does not reach AppKit subviews (the NSScrollView under the list is square and shows white corners outside the rounding),
-    /// so the rounded mask is applied on the layer, and the scroll view's own white background is switched off.
+    /// so the mask is applied on the layer, and the scroll view's own white background is switched off.
+    /// The mask is the outline of the panel / slab: a rounded rectangle (starting right of the ear's column) plus the ear on the left. The plate glass spans the ear's column;
+    /// the ear is cut out of it, so ear and panel are the same piece of glass. Both shapes carry a mask (while the window is larger than the content the mask is larger than the glass and does not clip it).
     override func layout() {
         super.layout()
         fitWindow()
         wantsLayer = true
-        // The rounded mask is only needed when expanded (clipping the square NSScrollView); collapsed, the pill / cards draw their own glass shapes and must not get another layer.
-        layer?.masksToBounds = !capsule
-        layer?.cornerCurve = .continuous
-        layer?.cornerRadius = capsule ? 0 : 18
+        updateMask(animated: false)
         clearScrollBackgrounds(self)
+    }
+
+    private func updateMask(animated: Bool) {
+        let mask = (layer?.mask as? CAShapeLayer) ?? CAShapeLayer()
+        let b = bounds
+        let path = maskPath(in: b, ear: earMask ? Ear.width + Ear.radius : 0.5)
+        if animated, let old = mask.path {
+            let anim = CABasicAnimation(keyPath: "path")
+            anim.fromValue = old
+            anim.toValue = path
+            anim.duration = Motion.earDuration
+            anim.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            mask.add(anim, forKey: "path")
+        }
+        mask.frame = b
+        mask.path = path
+        layer?.mask = mask
+    }
+
+    /// The ear slides out w wide to the left from under the panel (extending Ear.radius under the panel so the seam does not show); a very small w means no ear.
+    private func maskPath(in b: CGRect, ear w: CGFloat) -> CGPath {
+        let path = CGMutablePath()
+        path.addRoundedRect(in: CGRect(x: Ear.width, y: 0, width: b.width - Ear.width, height: b.height), cornerWidth: 18, cornerHeight: 18)
+        let earY = isFlipped ? Ear.top : b.height - Ear.top - Ear.height
+        let r = min(Ear.radius, w / 2)
+        path.addRoundedRect(in: CGRect(x: Ear.width + Ear.radius - w, y: earY, width: w, height: Ear.height), cornerWidth: r, cornerHeight: r)
+        return path
     }
 
     private func clearScrollBackgrounds(_ v: NSView) {

@@ -31,20 +31,20 @@ CI (`.github/workflows/build.yml`, GitHub Actions) builds on every push to `main
 | Action | How |
 |---|---|
 | Show / hide the panel | The Hoopa icon in the menu bar, or the global shortcut ⌃⌥T |
-| Add a to-do | Type in the field and press Return |
+| Add a to-do | The + at the top right of the panel, or the + ball at the end of the collapsed list; type a title and press Return. The title is one line; open the to-do for the notes |
 | Bind a page | Hover a to-do → click the ⌖ icon to enter pick mode |
 | Pick: bind a whole window | Move the mouse to highlight a window → click |
 | Pick: bind an element inside a window | Hold **⌥** to highlight a tab / sidebar item / button → click |
 | Pick: bind a browser tab | Hold **⌥** and point at that tab in the tab bar → click; clicking the window without ⌥ binds the current tab |
 | Pick: bind a Slack conversation | Clicking the window without ⌥ = the current conversation; hold ⌥ and point at a DM / channel row |
 | Cancel picking | Esc or right click |
-| Jump | Click the to-do row or the binding chip under it |
-| Rename | Double-click the to-do |
+| Jump | Click the binding chip, or the ball in the collapsed list |
+| Edit the title / notes | Click the to-do to open it and edit in place; changes are saved as you type. Click empty space or press Esc to close it |
 | Rebind / unbind / delete | Context menu |
-| Collapse / expand | ⌃ at the top left of the panel collapses it into a pill; the ⌄ on the card, or its content, expands it |
-| Details while collapsed | Hover the pill to expand it into a card stack, move away to close; the scroll wheel or a click on a card behind brings it forward |
+| Collapse / expand | The small ear outside the left edge: ⌃ on the panel, ⌄ once collapsed, at the same spot; it slides out while the mouse is on the panel and hides when it leaves. Collapsed, the panel is a mini list on a glass slab |
+| Collapsed | A mini list, one row per to-do: the ball (the to-do's head: the bound app's icon, ringed by the time ring, orange when nearly due, red when overdue), title · page name, the countdown at the right end ("Overdue" / "Time's up" once past due). Same order as the panel, at most 6 rows, then +N; the last row "+ Add" expands the panel to create one. Clicking a row jumps to the bound page (or expands the panel to its details when unbound); pointing at a row shows ○ at the right end, click it to mark done |
 | Reorder | Drag the cards |
-| Sort by time | The ⇅ left of the ⋯ at the top right: timed to-dos first, soonest first (overdue at the very top), untimed ones after them in their own order; while it is on, new to-dos and changed times fall into place; click again to return to the manual order. Dragging out of time order while sorting switches back to manual order as dragged |
+| Sort by time | The ⇅ left of the ⋯ at the top right: timed to-dos first, soonest first (overdue at the very top), untimed ones after them in their own order, shown in groups (Overdue / Today / Tomorrow / Later / No time); while it is on, new to-dos and changed times fall into place; click again to return to the manual order. Dragging out of time order while sorting switches back to manual order as dragged |
 | Keep the panel on top, show completed | The ⋯ menu at the top right |
 | Interface language | The ⋯ menu at the top right → Language (English by default, does not follow the system; switching relaunches the app) |
 

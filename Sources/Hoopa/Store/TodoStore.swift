@@ -52,9 +52,14 @@ final class TodoStore: ObservableObject {
         }
     }
 
-    /// The content is saved as it is typed (may be empty).
+    /// The title is saved as it is typed (may be empty).
     func rename(_ id: UUID, to title: String) {
         mutate(id) { $0.title = title }
+    }
+
+    /// The notes are saved as they are typed.
+    func setNotes(_ notes: String, for id: UUID) {
+        mutate(id) { $0.notes = notes }
     }
 
     func setBinding(_ binding: ContextBinding?, for id: UUID) {
