@@ -52,9 +52,12 @@ click.
 - **A floating panel that never steals focus.** It stays above your windows,
   takes clicks without activating, and hides behind ⌃⌥T or the menu bar
   icon.
+- **Keeps itself current.** Hoopa looks at GitHub Releases for a newer
+  version once a day (switch it off in the ⋯ menu) and, when you say so,
+  installs it in place and relaunches.
 - **English by default, Simplified Chinese built in.**
 - **Local data only.** One JSON file in Application Support. No account, no
-  sync, no network.
+  sync; the update check is the only thing that ever goes online.
 
 ## Quick start
 
@@ -77,8 +80,10 @@ build. Run it from Terminal so the keychain can ask for the key. See
 Prebuilt bundles for every commit are attached to the
 [CI runs](https://github.com/Phantom1003/Hoopa/actions/workflows/build.yml),
 and tagged versions are published under
-[Releases](https://github.com/Phantom1003/Hoopa/releases). Those are ad hoc
-signed, so Accessibility has to be granted again after every update.
+[Releases](https://github.com/Phantom1003/Hoopa/releases). A running Hoopa
+finds those by itself and offers to install them, see
+[Software update](docs/manual.md#software-update). They are ad hoc signed,
+so Accessibility has to be granted again after every update.
 
 Then:
 

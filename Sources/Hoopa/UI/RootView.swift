@@ -108,12 +108,13 @@ struct FrontGeometryKey: PreferenceKey {
 }
 
 /// Expanded: the list of sticky-note cards from the top of the panel, no title bar (a title and an empty row are both wasted space);
-/// The count, new, sort, delete all and the menu fold into a glass capsule floating at the bottom right; the list leaves its height free at the bottom so the last card can scroll above it.
+/// the count, new, sort, delete all, update (while a newer version exists) and the menu fold into a glass capsule floating at the bottom right; the list leaves its height free at the bottom so the last card can scroll above it.
 /// The composer does not occupy the top by default; + brings it up.
 struct ExpandedView: View {
     @EnvironmentObject var store: TodoStore
     @EnvironmentObject var permissions: PermissionState
     @EnvironmentObject var coordinator: AppCoordinator
+    @EnvironmentObject var updater: Updater
     @State private var showDone = false
     /// The confirmation before deleting everything.
     @State private var confirmDeleteAll = false
@@ -141,7 +142,7 @@ struct ExpandedView: View {
     /// The room left at the bottom of the list and under the toast: the control capsule's height plus its distance to the edge.
     private static let controlsInset: CGFloat = 48
 
-    /// The control capsule at the bottom right: count, new, sort, delete all, menu. Floats over the list (see controlsInset).
+    /// The control capsule at the bottom right: count, new, sort, delete all, update (while a newer version exists), menu. Floats over the list (see controlsInset).
     private var controls: some View {
         HStack(spacing: 8) {
             if !store.active.isEmpty {
@@ -150,6 +151,7 @@ struct ExpandedView: View {
             addButton
             sortButton
             deleteAllButton
+            updateButton
             menuButton
         }
         .padding(.horizontal, 10)
@@ -194,6 +196,11 @@ struct ExpandedView: View {
                     .disabled(permissions.accessibility)
                 Button("Clear Completed") { store.clearDone() }.disabled(store.done.isEmpty)
                 Divider()
+                // Version and update (see Updater): the outcome of a manual check and download / install failures go through the toast at the bottom.
+                Text("Version \(Updater.version)")
+                Toggle("Check for Updates Automatically", isOn: $updater.automatic)
+                updateMenuItem
+                Divider()
                 Text("Press ⌃⌥T to show / hide the panel")
                 Button("Quit Hoopa") { coordinator.onQuit?() }
             } label: {
@@ -202,6 +209,52 @@ struct ExpandedView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+    }
+
+    /// The update item in the ⋯ menu: normally "Check for Updates…", "Update to X and Relaunch" once a newer version exists, and only what it is doing while busy.
+    @ViewBuilder
+    private var updateMenuItem: some View {
+        switch updater.state {
+        case .available(let r):
+            Button("Update to \(r.version) and Relaunch") { updater.install() }
+        case .checking:
+            Text("Checking for updates…")
+        case .downloading(let r, _):
+            Text("Downloading \(r.version)…")
+        case .installing(let r):
+            Text("Installing \(r.version)…")
+        default:
+            Button("Check for Updates…") { updater.check(manual: true) }
+        }
+    }
+
+    /// The accent ⬇ added to the capsule while a newer version exists (a menu, like ⋯): which version, install it, read the notes.
+    /// A small spinner while downloading / installing; nothing at all the rest of the time, the capsule stays as it is.
+    @ViewBuilder
+    private var updateButton: some View {
+        switch updater.state {
+        case .available(let r):
+            Menu {
+                Text("Version \(r.version) is available")
+                Button("Update to \(r.version) and Relaunch") { updater.install() }
+                Button("Release Notes…") { NSWorkspace.shared.open(r.page) }
+            } label: {
+                Image(systemName: "arrow.down.circle.fill").foregroundStyle(Style.accent)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Version \(r.version) is available")
+            .accessibilityLabel("Update available")
+        case .downloading(let r, let fraction):
+            ProgressView(value: fraction).progressViewStyle(.circular).controlSize(.small)
+                .help("Downloading \(r.version)…")
+        case .installing(let r):
+            ProgressView().controlSize(.small)
+                .help("Installing \(r.version)…")
+        default:
+            EmptyView()
+        }
     }
 
     /// The sort-by-time toggle: timed to-dos first, soonest first (overdue at the very top), untimed ones after them in their own order;

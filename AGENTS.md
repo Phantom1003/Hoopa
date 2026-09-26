@@ -27,6 +27,13 @@ swift build             # compile check only: no bundle, icons or translations
   from Terminal. `SIGN_IDENTITY=-` signs ad hoc on purpose (what CI does).
 * Relaunching the app after a build takes the user's running instance down.
   Ask before doing it while the user is working.
+* A release is a `vX.Y` tag. Bump `CFBundleShortVersionString` in
+  `Resources/Info.plist` to `X.Y` first: CI refuses a tag that does not match
+  it, and the updater in running copies only installs a bundle whose version
+  equals the tag.
+  The release commit is `[release] X.Y: what is new`, changes nothing but
+  that line and is the commit the tag points at; code, docs and CI changes
+  go in commits of their own before it.
 
 ## CI (`.github/workflows/build.yml`)
 
@@ -35,8 +42,10 @@ swift build             # compile check only: no bundle, icons or translations
   `continue-on-error`). Both run `SIGN_IDENTITY=- ./build.sh`.
 * "Verify bundle" checks structure only: `codesign --verify --strict`,
   `plutil -lint`, the icns and menubar PNGs. No functional test runs on CI.
-* A `v*` tag publishes a GitHub Release with the `macos-26` zip, ad hoc
-  signed, not notarised.
+  On a `v*` tag it also checks that the plist version equals the tag.
+* A `v*` tag publishes a GitHub Release with the `macos-26` zip
+  (`Hoopa-vX.Y.zip`), ad hoc signed, not notarised. That zip is what
+  `Updater.swift` downloads.
 
 ## How binding and jumping must work
 
@@ -82,7 +91,26 @@ swift build             # compile check only: no bundle, icons or translations
 * Log: `~/Library/Application Support/Hoopa/hoopa.log` (a pick logs the
   probed interfaces and the anchors kept; a jump logs which anchor won and
   how it was confirmed). Code comments, log lines and UI strings are English.
-* Preferences live under the bundle ID `local.phantom.hoopa`.
+* Preferences live under the bundle ID `local.phantom.hoopa` (`autoUpdate`
+  is the daily release check, on unless set).
+
+## Testing the updater
+
+`App/Updater.swift` reads `HOOPA_UPDATE_API` (a GitHub "latest release" JSON:
+`tag_name`, `html_url`, `assets[].name` and `browser_download_url`) and
+installs the first `.zip` asset. To try it without a release: copy
+`build/Hoopa.app`, bump `CFBundleShortVersionString` in the copy, sign it
+(the Apple Development identity, so the Accessibility grant survives),
+`ditto -c -k --keepParent` it into a directory served by
+`python3 -m http.server`, and write a `latest.json` next to it whose asset
+URL points at that zip. Start the copy under test with
+`open --env HOOPA_UPDATE_API=http://127.0.0.1:PORT/latest.json <app>`. The
+log shows `Update: new version X available` a few seconds in; *Update to X and Relaunch*
+(under ⬇, in the ⋯ menu or in the menu bar menu) replaces that copy's bundle
+and the relaunched process logs `Version X`. `Relaunch` carries every `HOOPA_*`
+variable over, so the relaunched copy keeps reading the test endpoint. There
+is no data-directory hook: a test copy shares `todos.json` and the
+preferences with the real app, so quit the real one first.
 
 ## Conventions
 

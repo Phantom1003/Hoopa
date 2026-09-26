@@ -81,6 +81,28 @@
 "Reading page info…" = "正在读取页面信息…";
 "Bound: %@" = "已绑定：%@";
 
+/* 软件更新 */
+"Version %@" = "版本 %@";
+"Check for Updates Automatically" = "自动检查更新";
+"Check for Updates…" = "检查更新…";
+"Checking for updates…" = "正在检查更新…";
+"Hoopa %@ is up to date" = "Hoopa %@ 已是最新版本";
+"Version %@ is available" = "有新版本 %@";
+"Update available" = "有可用更新";
+"Update to %@ and Relaunch" = "更新到 %@ 并重新启动";
+"Release Notes…" = "更新说明…";
+"Downloading %@…" = "正在下载 %@…";
+"Installing %@…" = "正在安装 %@…";
+"Check failed: %@" = "检查失败：%@";
+"Update failed: %@" = "更新失败：%@";
+"Hoopa is not running from an app bundle" = "Hoopa 不是从 app 包运行的";
+"Hoopa runs from a quarantined copy; move it to Applications first" = "Hoopa 正从隔离的拷贝运行，请先把它移到“应用程序”";
+"the archive holds no app" = "压缩包里没有应用";
+"the download is not Hoopa" = "下载的不是 Hoopa";
+"the download is version %@, not %@" = "下载的是 %@ 版，不是 %@";
+"code signature check failed: %@" = "代码签名校验失败：%@";
+"cannot replace %@: %@" = "无法替换 %@：%@";
+
 /* 通知 */
 "Timer finished" = "倒计时结束";
 "Due today" = "今天到期";

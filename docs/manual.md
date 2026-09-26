@@ -45,9 +45,11 @@ float in a glass capsule at the bottom right, and the list leaves room under
 its last card so that card can scroll clear of the capsule. The trash button
 deletes every to-do, completed ones included, after a confirmation. The ⋯
 menu holds *Keep Panel on Top*, *Show Completed*, *Language*, the
-Accessibility status, *Clear Completed*, the shortcut reminder and *Quit
-Hoopa*. While Accessibility is not granted, an orange banner with a *Grant*
-button sits at the top of the panel.
+Accessibility status, *Clear Completed*, the version with the update
+controls (see [Software update](#software-update)), the shortcut reminder
+and *Quit Hoopa*. While a newer release exists, an accent-coloured **⬇**
+joins the capsule in front of ⋯. While Accessibility is not granted, an
+orange banner with a *Grant* button sits at the top of the panel.
 
 Each to-do is a card:
 
@@ -236,6 +238,33 @@ add the language to `CFBundleLocalizations` in `Resources/Info.plist` and to
 `AppLanguage.swift`. `en.lproj` holds only the plural rules
 (`Localizable.stringsdict`). Keys a translation lacks fall back to English.
 
+## Software update
+
+The ⋯ menu ends with the version, *Check for Updates Automatically* and
+*Check for Updates…*. With the automatic check on (the default) Hoopa asks
+GitHub for the latest [release](https://github.com/Phantom1003/Hoopa/releases)
+a few seconds after launch and once a day. When a newer one exists, an
+accent-coloured **⬇** appears in the control capsule next to ⋯ (its menu
+names the version, offers the update and the release notes), the ⋯ menu's
+*Check for Updates…* becomes *Update to X and Relaunch*, and the menu bar
+icon's right-click menu gets the same item, so the update can be taken from
+the collapsed list too. Nothing is installed until you click *Update to X and
+Relaunch*: that downloads the release zip, makes sure it holds a Hoopa bundle
+of that version with a valid code signature, swaps it for the running bundle
+in place (wherever it is: `/Applications`, `~/Applications` or the build
+directory) and relaunches. The ⬇ turns into a progress ring while this runs;
+a failure is reported in a toast and the ⬇ comes back so you can try again.
+*Check for Updates…* asks right away and answers in a toast. A release only
+counts when its version is newer than the running one, so a local build with
+the same number stays put. The check is the only network request Hoopa
+makes; switch it off and it never goes online.
+
+Release builds are ad hoc signed (see [Build & run](#build--run)), so after
+an update macOS asks for the Accessibility grant again (the orange banner
+comes back) and, the next time a browser tab is bound, for the Automation
+grant. A copy still quarantined by Gatekeeper (launched straight from the
+Downloads folder) cannot update itself; move it to Applications first.
+
 ## App icon
 
 `build.sh` runs `scripts/icons.swift` on `scripts/icon-source.png` (a picture
@@ -290,8 +319,12 @@ pull request, every `v*` tag and on manual dispatch: `SIGN_IDENTITY=-
 Xcode 27 preview image, allowed to fail), followed by structural checks of
 the bundle (`codesign --verify --strict`, `plutil -lint`, the icon files).
 There is no functional test. Every run attaches `Hoopa.zip`; a `v*` tag
-publishes the `macos-26` build as a GitHub Release. Runners have no
-certificate, so CI builds are ad hoc signed and not notarised: the
+publishes the `macos-26` build as a GitHub Release, `Hoopa-vX.Y.zip`, which
+is what running copies find through [Software update](#software-update).
+Bump `CFBundleShortVersionString` in `Resources/Info.plist` to `X.Y` before
+tagging `vX.Y`: CI refuses a tag whose version differs from the plist, since
+the updater only installs a bundle whose version equals the tag. Runners
+have no certificate, so CI builds are ad hoc signed and not notarised: the
 Accessibility grant does not survive an update to another CI build, and
 Gatekeeper may ask you to confirm the first launch. Day to day, build
 locally.
@@ -304,13 +337,15 @@ locally.
 * Log: `~/Library/Application Support/Hoopa/hoopa.log`, started over once it
   passes 2 MB.
 * Preferences (`local.phantom.hoopa`): the panel frame, the collapsed state,
-  the sort setting and the interface language.
+  the sort setting, the interface language and whether updates are checked
+  automatically.
 
 ## Diagnostics
 
 * The log records every pick (the interfaces the app was found to offer, the
   anchors kept), every jump (which anchor succeeded and how it was
-  confirmed) and every permission change.
+  confirmed), every permission change, and every update check and install
+  step (the version found, the download, why an install was refused).
 * To see what an app exposes before binding something in it, dump its
   Accessibility tree:
 
@@ -350,6 +385,7 @@ Sources/Hoopa/
   App/FloatingPanel.swift    Non-activating floating panel: clicks work without activating the app
   App/AppCoordinator.swift   Bridge between the SwiftUI views and AppKit; permission state
   App/AppLanguage.swift      Interface language (English by default, stored per app)
+  App/Updater.swift          Release check, in-place update and the relaunch helper
   App/Notifier.swift         Due notifications
   App/Log.swift              File log
   Models/Models.swift        TodoItem, ContextBinding, the Anchor kinds, Due

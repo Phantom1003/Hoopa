@@ -31,16 +31,10 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         UserDefaults.standard.set([english.rawValue], forKey: "AppleLanguages")
     }
 
-    /// Switch the language: write the preference and relaunch the app so every string changes at once.
+    /// Switch the language: write the preference and relaunch the app (see Relaunch) so every string changes at once.
     static func switchTo(_ lang: AppLanguage) {
         guard lang != current else { return }
         UserDefaults.standard.set([lang.rawValue], forKey: "AppleLanguages")
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/bin/sh")
-        // Open only after the current process has exited; otherwise open merely activates the old process that has not quit yet.
-        p.arguments = ["-c", "while kill -0 \(getpid()) 2>/dev/null; do sleep 0.1; done; /usr/bin/open \"$0\"",
-                       Bundle.main.bundlePath]
-        try? p.run()
-        NSApp.terminate(nil)
+        Relaunch.now()
     }
 }

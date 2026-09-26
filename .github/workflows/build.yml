@@ -54,6 +54,16 @@ jobs:
           test -f build/Hoopa.app/Contents/Resources/menubar@2x.png
           file build/Hoopa.app/Contents/MacOS/Hoopa
 
+      - name: Version matches the tag
+        # The updater only installs a bundle whose CFBundleShortVersionString equals the tag (without the v); do not publish a mismatch.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v=$(plutil -extract CFBundleShortVersionString raw build/Hoopa.app/Contents/Info.plist)
+          if [ "$v" != "${GITHUB_REF_NAME#v}" ]; then
+            echo "Info.plist says $v, the tag says ${GITHUB_REF_NAME#v}: bump CFBundleShortVersionString first" >&2
+            exit 1
+          fi
+
       - name: Package
         # ditto keeps the symlinks, permissions and extended attributes inside the bundle.
         run: ditto -c -k --keepParent build/Hoopa.app Hoopa.zip

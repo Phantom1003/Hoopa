@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     let store = TodoStore()
     let permissions = PermissionState()
     let coordinator = AppCoordinator()
+    /// Checks GitHub Releases and updates in place; see Updater.
+    let updater = Updater()
 
     private var statusItem: NSStatusItem!
     private var panel: FloatingPanel!
@@ -18,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         coordinator.onStartPicking = { [weak self] todo in self?.startPicking(for: todo) }
         coordinator.onAlwaysOnTopChanged = { [weak self] on in self?.panel.setAlwaysOnTop(on) }
         coordinator.onQuit = { NSApp.terminate(nil) }
+        updater.notify = { [weak self] text, seconds in self?.coordinator.showToast(text, seconds: seconds) }
         // Collapsed at the last quit: launch straight into the collapsed state without the collapse animation (onCompactChanged is not hooked up yet).
         let startCompact = UserDefaults.standard.bool(forKey: "compact")
         if startCompact { coordinator.restoreCompact() }
@@ -26,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             .environmentObject(store)
             .environmentObject(permissions)
             .environmentObject(coordinator)
+            .environmentObject(updater)
             .environment(\.locale, AppLanguage.locale)   // plural rules and the like follow the interface language, not the system region
         let hosting = FirstMouseHostingView(rootView: AnyView(root))
         panel = FloatingPanel(contentView: hosting)
@@ -44,6 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         panel.show()
         // Notifications scheduled by the last run may be gone; schedule them again.
         store.todos.forEach(Notifier.schedule)
+        Log.write("Version \(Updater.version)")
+        updater.start()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -96,6 +102,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             let menu = NSMenu()
             menu.addItem(withTitle: panel.isVisible ? String(localized: "Hide Panel") : String(localized: "Show Panel"), action: #selector(togglePanel), keyEquivalent: "")
             menu.addItem(withTitle: coordinator.isCompact ? String(localized: "Expand") : String(localized: "Collapse"), action: #selector(toggleCompact), keyEquivalent: "")
+            // One more item while a newer version exists: the same as the one under ⬇ in the panel; click to download, swap and relaunch.
+            if let r = updater.available {
+                menu.addItem(.separator())
+                menu.addItem(withTitle: String(localized: "Update to \(r.version) and Relaunch"), action: #selector(installUpdate), keyEquivalent: "")
+            }
             menu.addItem(.separator())
             menu.addItem(withTitle: String(localized: "Quit Hoopa"), action: #selector(quit), keyEquivalent: "q")
             menu.items.forEach { $0.target = self }
@@ -116,6 +127,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @objc private func toggleCompact() { coordinator.isCompact.toggle() }
+
+    @objc private func installUpdate() { updater.install() }
 
     @objc private func quit() { NSApp.terminate(nil) }
 
