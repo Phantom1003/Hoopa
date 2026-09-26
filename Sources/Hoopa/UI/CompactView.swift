@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Collapsed: a mini list on a glass slab. One row per to-do: the ball (the to-do's head: the bound app's icon, a green fluffy ball when unbound; timed ones ringed by the time ring),
-/// title · page name, the countdown at the right end (orange when nearly due, red once overdue); the last row is "+ Add" (expands the panel and opens the composer).
+/// title · page name, the countdown at the right end (orange when nearly due, red once overdue). With no to-dos at all the only row is "+ Add" (expands the panel and opens the composer); with to-dos it takes no row, creating goes through the expanded panel.
 /// Same order as the panel (manual order; time order while sort by time is on), at most 6 rows, then "+N more" (opens the panel).
 /// Clicking a row: expands the panel and opens that to-do's details (jumping is the chip in the details, or the context menu); pointing at a row turns the ball into ○, click it to mark done.
 /// Fixed width, independent of the content. Expanding is the ear outside the slab's left edge (see EarToggle). The glass is drawn by RootView's plate (collapsed, the plate is the slab), only the content lives here.
@@ -43,7 +43,7 @@ struct CompactView: View {
                 }
                 .buttonStyle(.plain)
             }
-            addRow
+            if items.isEmpty { addRow }
         }
         .frame(width: width, alignment: .leading)
         .padding(.horizontal, inset).padding(.vertical, insetV)
@@ -65,7 +65,7 @@ struct CompactView: View {
         }
     }
 
-    /// The last row: a green + ball and grey text; a click expands the panel and opens the composer.
+    /// The only row of an empty list: a green + ball and grey text; a click expands the panel and opens the composer. Hidden while there are to-dos (the expanded panel has a +, this row would only repeat it).
     private var addRow: some View {
         Button { coordinator.expandToAdd() } label: {
             HStack(spacing: gap) {
