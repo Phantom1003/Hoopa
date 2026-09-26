@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A to-do: a sticky-note card. Normally one row: ○ title (a small icon at the end when there are notes), above it the binding chip (click to jump) and the time chip (click to change the time),
+/// A to-do: a sticky-note card. Normally one row: ○ title (a small icon at the end when there are notes), above it a flush-left row with the binding chip (click to jump) and the time chip (click to change the time),
 /// on hover the action buttons appear at the top right. A click opens the details: title and notes are editable (saved as typed) and the action buttons stay; click empty space or press Esc to close.
 struct TodoCard: View {
     let todo: TodoItem
@@ -17,7 +17,7 @@ struct TodoCard: View {
 
     private var isJumping: Bool { coordinator.jumpingID == todo.id }
     private var hasChips: Bool { todo.binding != nil || todo.due != nil }
-    /// The done box's width + its gap to the title: the chip row and the notes are indented by this much to line up with the title text.
+    /// The done box's width + its gap to the title: the notes are indented by this much to line up with the title text. The chip row is flush left, not indented.
     private static let textInset: CGFloat = 22
 
     var body: some View {
@@ -32,7 +32,6 @@ struct TodoCard: View {
                     Spacer(minLength: 0)
                     if selected || hovering { actions }
                 }
-                .padding(.leading, Self.textInset)
             }
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Button { store.toggleDone(todo.id) } label: {
