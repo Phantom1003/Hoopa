@@ -19,6 +19,7 @@ struct CompactView: View {
     private let rowHeight: CGFloat = 22       // row height = the ball's diameter + 1 above and below; rows are only rowGap apart
     private let rowGap: CGFloat = 2
     private let ball: CGFloat = 20
+    private let ringWidth: CGFloat = 2        // the time ring's width; the core is two ring widths smaller than the ball, sitting right inside the ring
     private let maxRows = 6
     private let gap: CGFloat = 6
     /// The slab is at least this tall: the ear (Ear.top…Ear.top+Ear.height) has to land on the straight part of the left edge, above the bottom corner.
@@ -123,13 +124,17 @@ struct CompactView: View {
         }
     }
 
-    /// The ball: the app icon for a bound page (a spinner while jumping); a green fluffy ball with the title's first character when unbound. Timed ones are ringed by the time ring.
+    /// The ball: the app icon for a bound page (a spinner while jumping), a fluffy ball with the title's first character when unbound.
+    /// Timed ones carry the time ring on the edge: the faint full circle is the track, the solid arc what is left (a countdown against its set length, a date against the last 24 hours),
+    /// orange when nearly due, a full red lap once overdue; the core steps in by one ring, the fluffy ball's colour follows the ring (green normally, orange when nearly due, red once overdue), the icon's background stays grey.
     private func ballView(_ t: TodoItem) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let label = t.due.map { TimeFormat.label($0, now: ctx.date) }
             let tint = Self.tint(label)
+            let core = t.due == nil ? ball : ball - ringWidth * 2
             ZStack {
-                Circle().fill(t.binding == nil ? Self.green.opacity(0.35) : Style.chip)
+                Circle().fill(t.binding == nil ? tint.opacity(0.35) : Style.chip)
+                    .frame(width: core, height: core)
                 if coordinator.jumpingID == t.id {
                     ProgressView().controlSize(.mini)
                 } else if let b = t.binding {
@@ -139,10 +144,12 @@ struct CompactView: View {
                         .font(.system(size: ball * 0.42, weight: .semibold, design: .rounded))
                 }
                 if let d = t.due {
+                    Circle().stroke(tint.opacity(0.22), lineWidth: ringWidth)
+                        .padding(ringWidth / 2)
                     Circle().trim(from: 0, to: label?.overdue == true ? 1 : Self.fraction(d, now: ctx.date))
-                        .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .stroke(tint, style: StrokeStyle(lineWidth: ringWidth, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .padding(1)
+                        .padding(ringWidth / 2)
                 }
             }
             .frame(width: ball, height: ball)
