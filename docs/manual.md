@@ -69,6 +69,8 @@ before it, the lower half after.
 
 ## The collapsed list
 
+<img src="images/collapsed.png" width="270" alt="The collapsed list: a glass slab with five to-dos, the ear with ⌄ at its left edge, an app icon inside a time ring on every bound to-do, and the countdowns at the right, one orange and one red Overdue">
+
 The ear is a small tab outside the panel's left edge. It slides out while the
 mouse is over the panel and shows ⌃ when the panel is expanded and ⌄ when it
 is collapsed, in exactly the same spot, so repeated clicks only toggle.

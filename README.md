@@ -16,6 +16,8 @@ search box and never reads pixels off the screen.
 Named after the genie whose rings open onto faraway places: each to-do is a
 ring, and one click through it puts you back on the page it belongs to.
 
+<img src="docs/images/collapsed.png" width="270" alt="The collapsed list: a glass slab with one row per to-do, each with the bound app's icon inside its time ring, the title and the countdown; the ear at the left edge expands the panel">
+
 ## Why
 
 "Reply to the thread", "finish the review", "fix the flaky test": the note is
