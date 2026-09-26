@@ -85,10 +85,11 @@ rows and then "N more" (click it to expand):
   time is close and red when it has passed.
 * **Title · page name**, the page name only when both fit whole.
 * **The countdown** at the right edge, `Overdue` once the time has passed.
-  Hover it for the absolute time.
+  The absolute time is on the time chip in the expanded panel.
 
 Click a row and the panel expands with that to-do's details open. Point at a
-row and its ball turns into ○: click it to mark the to-do done. The
+row and ○ appears at its right end, where the countdown was: click it to mark
+the to-do done. The ball stays the to-do's head and is not a button. The
 right-click menu offers *Jump to Bound Page*, *Mark as Done*, *Expand* and
 *Quit*. When there are no to-dos at all, the slab shows a single "+ Add a
 to-do" row that expands the panel with the composer open.
