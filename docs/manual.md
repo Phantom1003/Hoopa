@@ -267,22 +267,32 @@ Downloads folder) cannot update itself; move it to Applications first.
 
 ## App icon
 
-`build.sh` runs `scripts/icons.swift` on `scripts/icon-source.png` (a picture
-on a transparent background) at every build:
+`scripts/artwork.png` is the official Hoopa picture on a transparent
+background, in the normal colouring. `scripts/icon-source.png` is the same
+picture in the shiny colouring, made once with `swift scripts/shiny.swift
+scripts/artwork.png scripts/icon-source.png`: each colour family (hood, face,
+horns, eyes) is mapped to its shiny colour by a transform that is linear in
+lightness, so the shading, the highlights and the anti-aliased outlines come
+through as they are. `build.sh` runs `scripts/icons.swift` on both at every
+build:
 
-* **App icon**: the transparent margin is cropped, the picture is centred on a
-  square with 5% padding on every side and scaled to every size from 16 to
-  1024 px, then packed into `Hoopa.icns`. From macOS 26 on, an icon that is
-  not a rounded square is shown by the system inside a grey rounded square.
-* **Menu bar icon**: the silhouette of the whole figure with the eyes cut out, as
-  a monochrome template image (alpha only, so macOS tints it like its own
-  status icons), 18 pt high plus an @2x version. It is a silhouette rather
-  than a light/dark split of the picture because a luminance split drops
-  the dark outlines and leaves the lighter parts floating apart.
+* **App icon**, from `icon-source.png`: the transparent margin is cropped, the
+  picture is centred on a square with 5% padding on every side and scaled to
+  every size from 16 to 1024 px, then packed into `Hoopa.icns`. From macOS 26
+  on, an icon that is not a rounded square is shown by the system inside a
+  grey rounded square.
+* **Menu bar icon**, from `artwork.png`, the way Shellder does it: the dark
+  parts of the whole picture as a monochrome template image (alpha only, so
+  macOS tints it like its own status icons), 18 pt high plus an @2x version.
+  Darkness becomes opacity: everything lighter than a luminance of about 0.7
+  is transparent, so the hood, the horns, the eyes and the outlines stay and
+  the face, the hands and the gold rings show the menu bar through. Nothing
+  is cropped. The normal colouring is used because only light and dark count
+  here: in the shiny colouring the horns are as light as the face.
 
-Replace the picture and rebuild to change both icons. A binary built with
-plain `swift build` has no bundle and falls back to the checklist symbol in
-the menu bar.
+To change the icons, replace `artwork.png`, run `shiny.swift` and rebuild. A
+binary built with plain `swift build` has no bundle and falls back to the
+checklist symbol in the menu bar.
 
 ## Build & run
 
@@ -409,6 +419,8 @@ Resources/
   zh-Hans.lproj/             Simplified Chinese: keys are the English strings in the code
   en.lproj/                  Plural rules (Localizable.stringsdict)
 scripts/
-  icon-source.png            The picture both icons are made from
+  artwork.png                The official picture, normal colouring; the menu bar icon is made from it
+  shiny.swift                Recolours it to the shiny colouring, once, into icon-source.png
+  icon-source.png            The picture the app icon is made from (shiny)
   icons.swift                App icon and menu bar template, run by build.sh
 ```

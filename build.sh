@@ -12,11 +12,12 @@ if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]
 fi
 
 swift build -c release
-# Icons: scripts/icon-source.png makes the app icon Hoopa.icns and the menu bar icon menubar.png / @2x (see scripts/icons.swift).
-# Generate first, assemble the app after, so a failed generation leaves no half-built app.
+# Icons: scripts/icon-source.png (the official artwork.png recoloured into the shiny colouring by shiny.swift) makes the app icon Hoopa.icns;
+# the menu bar icon menubar.png / @2x comes from artwork.png (normal colouring) the way Shellder does it: dark parts kept, light parts transparent, no cropping.
+# See scripts/icons.swift. Generate first, assemble the app after, so a failed generation leaves no half-built app.
 ICONS=$(mktemp -d)
 trap 'rm -rf "$ICONS"' EXIT
-swift scripts/icons.swift scripts/icon-source.png "$ICONS/Hoopa.iconset" "$ICONS"
+swift scripts/icons.swift scripts/icon-source.png scripts/artwork.png "$ICONS/Hoopa.iconset" "$ICONS"
 iconutil -c icns "$ICONS/Hoopa.iconset" -o "$ICONS/Hoopa.icns"
 APP="build/Hoopa.app"
 rm -rf "$APP"
