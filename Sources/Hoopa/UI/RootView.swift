@@ -5,6 +5,8 @@ import SwiftUI
 /// The collapsed list draws no glass of its own: with two pieces of glass stacked, each one's shadow shows through the other. The plate spans the ear's column on the left,
 /// and the ear is cut out of its left side by the window's layer mask (see FirstMouseHostingView), so ear and panel are one piece of glass from the start;
 /// Liquid Glass only understands standard shapes (it does not redraw custom shapes while they animate, and two pieces do not merge), so the shape is always a rounded rectangle.
+/// The plate's left corners are cut by the mask too (the glass itself extends under the ear's column), so the plate's rect every frame and how far the ear is out are reported to the window from here,
+/// and the mask follows the plate frame by frame: if the mask clipped to the window size, the plate's bottom left corner would land on the mask's straight edge while it shrinks / grows and turn square.
 /// The ear is out only while the mouse is on the window and slides back to the edge when it leaves. The window grows first and shrinks once the animation is over (see FirstMouseHostingView.fitWindow); the content stays glued to the top left.
 struct RootView: View {
     @EnvironmentObject var coordinator: AppCoordinator
@@ -29,10 +31,12 @@ struct RootView: View {
         let plate = expanded ? FrontGeometry(rect: panelRect, radius: 18) : front
         ZStack(alignment: .topLeading) {
                 // The plate: one rounded-rectangle piece of glass spanning the ear's column on the left (the rect starts at the window's left edge, the ear is cut out by the mask). Present in both shapes; collapsed, it is the slab itself.
+                // Position and size are set by PlateFrame, which reports the mid-animation rect to the window's mask every frame.
                 Color.clear
                     .glass(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
-                    .frame(width: plate.rect.width + Ear.width, height: plate.rect.height)
-                    .offset(x: plate.rect.minX - Ear.width, y: plate.rect.minY)
+                    .modifier(PlateFrame(rect: CGRect(x: plate.rect.minX - Ear.width, y: plate.rect.minY,
+                                                      width: plate.rect.width + Ear.width, height: plate.rect.height),
+                                         report: { coordinator.plateFrame = $0 }))
                     .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
                                value: PlateKey(expanded: expanded, front: expanded ? nil : front))
                     .allowsHitTesting(false)
@@ -63,6 +67,11 @@ struct RootView: View {
                 EarToggle(shown: earShown)
                     .offset(y: Ear.top)
                     .zIndex(3)
+                // How far the ear is out (the value on every animation frame) is reported to the window's mask: an invisible probe that takes no events, its width is how far the ear is out.
+                Color.clear
+                    .modifier(EarProbe(extent: earShown ? Ear.width + Ear.radius : 0.5, report: { coordinator.earExtent = $0 }))
+                    .animation(Motion.ear, value: earShown)
+                    .allowsHitTesting(false)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .coordinateSpace(name: "root")     // the slab's rect is reported in this space and the plate is placed by it
@@ -79,16 +88,49 @@ struct RootView: View {
         .animation(Motion.panelShrink, value: coordinator.isCompact)
     }
 
-    /// The ear slides out as soon as the mouse arrives and back 0.5 s after it leaves. The ear itself is cut out by the window mask; only the arrow and the window notification live here (see FloatingPanel.setEar).
+    /// The ear slides out as soon as the mouse arrives and back 0.5 s after it leaves. The ear itself is cut out by the window mask (its width reported frame by frame by the probe above); only the arrow lives here.
     private func hover(_ inside: Bool) {
         earWork?.cancel()
         let work = DispatchWorkItem {
             guard earShown != inside else { return }
             earShown = inside
-            coordinator.onEarChange?(inside, Motion.earBusy)
         }
         earWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + (inside ? 0 : 0.5), execute: work)
+    }
+}
+
+/// Mid-animation values have to reach the window's mask every frame. SwiftUI animations interpolate in the presentation layer; GeometryReader / onChange in the layout only see the end values.
+/// Only an Animatable modifier's animatableData is interpolated per frame, and body is re-evaluated with that frame's value, provided body affects layout:
+/// a modifier whose body returns content unchanged is never evaluated at all. So both modifiers below size themselves from the reported value.
+
+/// How far the ear is out: the probe's width is exactly that, reported every frame.
+private struct EarProbe: ViewModifier, Animatable {
+    var extent: CGFloat
+    var report: (CGFloat) -> Void
+    var animatableData: CGFloat {
+        get { extent }
+        set { extent = newValue }
+    }
+    func body(content: Content) -> some View {
+        report(extent)
+        return content.frame(width: extent, height: 1)
+    }
+}
+
+/// The plate's position and size (root view coordinates), laid out every animation frame at the interpolated rect and reported: the window's mask rounds the corners to this rect, flush with the plate.
+private struct PlateFrame: ViewModifier, Animatable {
+    var rect: CGRect
+    var report: (CGRect) -> Void
+    var animatableData: CGRect.AnimatableData {
+        get { rect.animatableData }
+        set { rect.animatableData = newValue }
+    }
+    func body(content: Content) -> some View {
+        report(rect)
+        return content
+            .frame(width: rect.width, height: rect.height)
+            .offset(x: rect.minX, y: rect.minY)
     }
 }
 

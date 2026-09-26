@@ -33,6 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             .environment(\.locale, AppLanguage.locale)   // plural rules and the like follow the interface language, not the system region
         let hosting = FirstMouseHostingView(rootView: AnyView(root))
         panel = FloatingPanel(contentView: hosting)
+        // The window's layer mask follows the plate and the ear; the root view has already been evaluated once, so hand over the geometry it reported.
+        coordinator.onMaskChange = { [weak self] plate, ear in self?.panel.setMask(plate: plate, ear: ear) }
+        panel.setMask(plate: coordinator.plateFrame, ear: coordinator.earExtent)
         panel.onResize = { [weak self] size in self?.coordinator.panelSize = size }
         coordinator.panelSize = panel.frame.size
         if startCompact { panel.setCompact(true, animated: false) }
@@ -40,7 +43,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             self?.panel.setCompact(compact)
             UserDefaults.standard.set(compact, forKey: "compact")
         }
-        coordinator.onEarChange = { [weak self] shown, busy in self?.panel.setEar(shown: shown, busy: busy) }
         UNUserNotificationCenter.current().delegate = self
 
         setupStatusItem()

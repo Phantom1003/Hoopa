@@ -30,8 +30,11 @@ final class AppCoordinator: ObservableObject {
     var onStartPicking: ((TodoItem?) -> Void)?
     var onAlwaysOnTopChanged: ((Bool) -> Void)?
     var onCompactChanged: ((Bool) -> Void)?
-    /// The ear slides out / back (the animation takes this long): the window's mask and shadow follow.
-    var onEarChange: ((Bool, TimeInterval) -> Void)?
+    /// The plate's current rect (root view coordinates) and how far the ear is out: RootView reports them every frame (mid-animation values) and the window's layer mask follows.
+    /// Keeps the latest value because the root view is first evaluated before the window hooks up onMaskChange (see AppDelegate).
+    var plateFrame: CGRect? { didSet { if plateFrame != oldValue { onMaskChange?(plateFrame, earExtent) } } }
+    var earExtent: CGFloat = 0.5 { didSet { if earExtent != oldValue { onMaskChange?(plateFrame, earExtent) } } }
+    var onMaskChange: ((CGRect?, CGFloat) -> Void)?
     var onQuit: (() -> Void)?
 
     private var toastToken = 0

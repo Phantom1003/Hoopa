@@ -111,7 +111,6 @@ final class FloatingPanel: NSPanel {
             onResize?(f.size)               // tell the UI layer the panel size first, so the plate's end rect is right
             setFrame(f, display: true)      // lay out once at the new size right away (the state has not changed yet), see AppCoordinator.isCompact
         }
-        if animated { trackShadow(for: compact ? Motion.collapseBusy : Motion.expandBusy) } else { invalidateShadow() }
     }
 
     /// Remember the size while the window is the expanded panel (not when launching at the collapsed size: that is always smaller than the panel's minimum).
@@ -120,32 +119,25 @@ final class FloatingPanel: NSPanel {
         expandedSize = frame.size
     }
 
-    private var shadowTimer: Timer?
-    private var earShown = false
-
-    /// The ear slides out / back: the ear part of the mask slides (Core Animation) and the shadow refreshes.
-    func setEar(shown: Bool, busy: TimeInterval) {
-        earShown = shown
-        hosting.earMask = shown
-        trackShadow(for: busy)
-    }
-
-    /// Keeps the window shadow refreshing during a morph: a transparent window's shadow follows the content's shape and keeps the old one unless refreshed.
-    func trackShadow(for duration: TimeInterval) {
-        shadowTimer?.invalidate()
-        let end = Date().addingTimeInterval(duration + 0.1)
-        shadowTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] t in
-            self?.invalidateShadow()
-            if Date() >= end { t.invalidate() }
-        }
-    }
+    /// The mask geometry, reported by RootView every frame: the plate's current rect (root view coordinates) and how far the ear is out. See FirstMouseHostingView.setMask.
+    func setMask(plate: CGRect?, ear: CGFloat) { hosting.setMask(plate: plate, ear: ear) }
 }
 
 /// When the panel is not the key window the first click also goes straight to SwiftUI instead of only making the window key;
 /// pressing on empty space (not a button / text field) drags the whole window (a borderless window has no title bar to drag).
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
-    /// The ear is out: the ear part of the mask slides out (animated).
-    var earMask = false { didSet { updateMask(animated: true) } }
+    /// The mask geometry, reported by RootView every frame (mid-animation SwiftUI values): the plate's current rect (root view coordinates, spanning the ear's column) and how far the ear is out.
+    /// The mask has no animation of its own and follows every frame, so the corners always sit on the plate's corners: if the mask clipped to the window size while the plate shrinks / grows,
+    /// the plate's bottom left corner would land on the mask's straight edge and turn square (the plate's left corners are cut by the mask; the glass itself extends under the ear's column).
+    private var plateRect: CGRect?
+    private var earExtent: CGFloat = 0.5
+
+    func setMask(plate: CGRect?, ear: CGFloat) {
+        guard plate != plateRect || ear != earExtent else { return }
+        plateRect = plate
+        earExtent = ear
+        updateMask()
+    }
     /// Collapsed: the window is sized to the content. NSHostingView's own preferredContentSize does nothing here, so measure and set it ourselves.
     var autoFit = false { didSet { needsLayout = true } }
     private var fitting = false
@@ -195,40 +187,39 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
 
     /// SwiftUI's clipShape does not reach AppKit subviews (the NSScrollView under the list is square and shows white corners outside the rounding),
     /// so the mask is applied on the layer, and the scroll view's own white background is switched off.
-    /// The mask is the outline of the panel / slab: a rounded rectangle (starting right of the ear's column) plus the ear on the left. The plate glass spans the ear's column;
-    /// the ear is cut out of it, so ear and panel are the same piece of glass. Both shapes carry a mask (while the window is larger than the content the mask is larger than the glass and does not clip it).
+    /// The mask is the outline of the panel / slab: the plate's rounded rectangle (starting right of the ear's column) plus the ear on the left. The plate glass spans the ear's column;
+    /// the ear is cut out of it, so ear and panel are the same piece of glass. While the window is larger than the plate the mask is only as large as the plate; the rest is empty anyway.
     override func layout() {
         super.layout()
         fitWindow()
         wantsLayer = true
-        updateMask(animated: false)
+        updateMask()
         clearScrollBackgrounds(self)
     }
 
-    private func updateMask(animated: Bool) {
-        let mask = (layer?.mask as? CAShapeLayer) ?? CAShapeLayer()
+    private func updateMask() {
+        guard let layer else { return }
+        let mask = (layer.mask as? CAShapeLayer) ?? CAShapeLayer()
         let b = bounds
-        let path = maskPath(in: b, ear: earMask ? Ear.width + Ear.radius : 0.5)
-        if animated, let old = mask.path {
-            let anim = CABasicAnimation(keyPath: "path")
-            anim.fromValue = old
-            anim.toValue = path
-            anim.duration = Motion.earDuration
-            anim.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            mask.add(anim, forKey: "path")
-        }
+        // Changing a standalone layer's frame implicitly animates for 0.25 s (at the moment of growing the mask is still smaller than the plate and clips it square); switch it off: the mask is set directly from the reported value every frame.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         mask.frame = b
-        mask.path = path
-        layer?.mask = mask
+        mask.path = maskPath(in: b, plate: plateRect ?? b, ear: earExtent)
+        layer.mask = mask
+        CATransaction.commit()
+        window?.invalidateShadow()    // a transparent window's shadow follows the content's shape; refresh it when the shape changes or it keeps the old one
     }
 
-    /// The ear slides out w wide to the left from under the panel (extending Ear.radius under the panel so the seam does not show); a very small w means no ear.
-    private func maskPath(in b: CGRect, ear w: CGFloat) -> CGPath {
+    /// The plate rect is clipped to a rounded rectangle from the right of the ear's column; the ear slides out w wide to the left from under the panel (extending Ear.radius under the panel so the seam does not show),
+    /// and a very small w means no ear. Coordinates start at the top left (NSHostingView is flipped, matching SwiftUI's root view coordinates).
+    private func maskPath(in b: CGRect, plate: CGRect, ear w: CGFloat) -> CGPath {
         let path = CGMutablePath()
-        path.addRoundedRect(in: CGRect(x: Ear.width, y: 0, width: b.width - Ear.width, height: b.height), cornerWidth: 18, cornerHeight: 18)
-        let earY = isFlipped ? Ear.top : b.height - Ear.top - Ear.height
+        let body = CGRect(x: Ear.width, y: plate.minY, width: max(plate.maxX - Ear.width, 0), height: plate.height)
+        let radius = min(18, body.width / 2, body.height / 2)
+        path.addRoundedRect(in: body, cornerWidth: radius, cornerHeight: radius)
         let r = min(Ear.radius, w / 2)
-        path.addRoundedRect(in: CGRect(x: Ear.width + Ear.radius - w, y: earY, width: w, height: Ear.height), cornerWidth: r, cornerHeight: r)
+        path.addRoundedRect(in: CGRect(x: Ear.width + Ear.radius - w, y: Ear.top, width: w, height: Ear.height), cornerWidth: r, cornerHeight: r)
         return path
     }
 

@@ -16,10 +16,8 @@ enum Style {
 
 /// The timing of collapse / expand.
 enum Motion {
-    /// The ear slides out / back (the mask's Core Animation and the arrow's fade share this duration).
-    static let earDuration: TimeInterval = 0.22
-    static let ear = Animation.easeOut(duration: earDuration)
-    static let earBusy: TimeInterval = 0.3
+    /// The ear slides out / back (the ear part of the mask and the arrow's fade share this duration).
+    static let ear = Animation.easeOut(duration: 0.22)
     /// The arrow on the ear: fades in only once the ear is out; disappears before the ear when it folds back.
     static let chevronIn = Animation.easeOut(duration: 0.12).delay(0.1)
     static let chevronOut = Animation.easeIn(duration: 0.1)
@@ -27,7 +25,6 @@ enum Motion {
     static let panelGrow = Animation.smooth(duration: 0.36)
     static let compactOut = Animation.easeOut(duration: 0.12)
     static let panelContentIn = Animation.easeOut(duration: 0.15)
-    static let expandBusy: TimeInterval = 0.5
     /// Collapse: the plate shrinks back to the slab's rect, covering the panel content while it fades out; then the slab's content appears.
     static let panelShrink = Animation.smooth(duration: 0.32)
     static let panelContentOut = Animation.easeIn(duration: 0.28)
