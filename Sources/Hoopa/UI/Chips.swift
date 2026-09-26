@@ -97,7 +97,7 @@ struct OptionalChip: ViewModifier {
     }
 }
 
-/// A text-only countdown (used in the collapsed list's description row): refreshes every second, orange when nearly due, red once overdue; hover for the absolute time.
+/// A text-only countdown (used in the collapsed list's description row): refreshes every second, orange in the last ten minutes, red in the last minute and once overdue; hover for the absolute time.
 struct DueText: View {
     let due: Due
 
@@ -107,7 +107,7 @@ struct DueText: View {
             Text(l.text).monospacedDigit()
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(l.overdue ? Style.overdue : (l.urgent ? Style.urgent : Style.text))
+                .foregroundStyle(l.alert ?? Style.text)
                 .help(l.detail)
         }
     }
@@ -141,9 +141,9 @@ struct DueChip: View {
             }
             .lineLimit(1)
             .fixedSize()          // the time must never wrap to two lines
-            .foregroundStyle(l.overdue ? Style.overdue : (l.urgent ? Style.urgent : Style.text))
-            // The capsule tint follows the warning: orange when nearly due, red once overdue.
-            .modifier(OptionalChip(enabled: !bare, tint: l.overdue ? Style.overdue.opacity(0.2)
+            .foregroundStyle(l.alert ?? Style.text)
+            // The capsule tint follows the warning (matching the time ring): orange in the last ten minutes, red in the last minute and once overdue.
+            .modifier(OptionalChip(enabled: !bare, tint: l.overdue || l.critical ? Style.overdue.opacity(0.2)
                                                     : (l.urgent ? Style.urgent.opacity(0.15) : Style.chip)))
             .layoutPriority(1)
         }

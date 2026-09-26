@@ -127,12 +127,13 @@ struct CompactView: View {
     }
 
     /// The ball: the app icon for a bound page (a spinner while jumping), a fluffy ball with the title's first character when unbound.
-    /// Timed ones carry the time ring on the edge: the faint full circle is the track, the solid arc what is left (a countdown against its set length, a date against the last 24 hours),
-    /// orange when nearly due, a full red lap once overdue; the core steps in by one ring, the fluffy ball's colour follows the ring (green normally, orange when nearly due, red once overdue), the icon's background stays grey.
+    /// Timed ones carry the time ring on the edge (see TimeRing: bands of a week, a day, an hour, ten minutes, five minutes, one minute, one lap each, colours from cool to warm,
+    /// the track showing the next band's colour, a full red lap once overdue); the core steps in by one ring, the fluffy ball's colour follows the ring, the icon's background stays grey.
     private func ballView(_ t: TodoItem) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let label = t.due.map { TimeFormat.label($0, now: ctx.date) }
-            let tint = Self.tint(label)
+            let ring = t.ring(now: ctx.date)
+            let tint = Self.tint(ring, overdue: label?.overdue == true)
             let core = t.due == nil ? ball : ball - ringWidth * 2
             ZStack {
                 Circle().fill(t.binding == nil ? tint.opacity(0.35) : Style.chip)
@@ -145,13 +146,8 @@ struct CompactView: View {
                     Text(String(trimmed(t).prefix(1)))
                         .font(.system(size: ball * 0.42, weight: .semibold, design: .rounded))
                 }
-                if let d = t.due {
-                    Circle().stroke(tint.opacity(0.22), lineWidth: ringWidth)
-                        .padding(ringWidth / 2)
-                    Circle().trim(from: 0, to: label?.overdue == true ? 1 : Self.fraction(d, now: ctx.date))
-                        .stroke(tint, style: StrokeStyle(lineWidth: ringWidth, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .padding(ringWidth / 2)
+                if let ring {
+                    TimeRing(state: ring, overdue: label?.overdue == true, width: ringWidth)
                 }
             }
             .frame(width: ball, height: ball)
@@ -175,29 +171,20 @@ struct CompactView: View {
         .lineLimit(1).truncationMode(.tail)
     }
 
-    /// The countdown at the right end (refreshed every second; "Overdue" once past due). It gives way to ○ when the row is pointed at, so it carries no absolute-time tooltip: the absolute time is on the time chip in the details.
+    /// The countdown at the right end (refreshed every second; orange in the last ten minutes, red in the last minute, red "Overdue" once past due).
+    /// It gives way to ○ when the row is pointed at, so it carries no absolute-time tooltip: the absolute time is on the time chip in the details.
     private func time(_ d: Due) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let l = TimeFormat.label(d, now: ctx.date)
             Text(l.text).font(.system(size: 11, weight: .semibold)).monospacedDigit()
-                .foregroundStyle(l.overdue ? Style.overdue : (l.urgent ? Style.urgent : Style.secondary))
+                .foregroundStyle(l.alert ?? Style.secondary)
                 .fixedSize()
         }
     }
 
-    /// The colour of the time ring / countdown: red once overdue, orange when nearly due, otherwise the default green.
-    private static func tint(_ l: TimeFormat.DueLabel?) -> Color {
-        guard let l else { return green }
-        return l.overdue ? Style.overdue : (l.urgent ? Style.urgent : green)
-    }
-
-    /// How much of the time ring is left: a countdown against its set length; a date-time against the last 24 hours.
-    private static func fraction(_ due: Due, now: Date) -> Double {
-        switch due {
-        case .countdown(let end, let minutes):
-            return max(0, min(1, end.timeIntervalSince(now) / Double(max(minutes, 1) * 60)))
-        case .dateTime(let d), .date(let d):
-            return max(0, min(1, d.timeIntervalSince(now) / 86400))
-        }
+    /// The fluffy ball's core follows the time ring: red once overdue, otherwise the current band's colour; the default green without a time.
+    private static func tint(_ ring: Ladder.State?, overdue: Bool) -> Color {
+        guard let ring else { return green }
+        return overdue ? Style.overdue : ring.color
     }
 }

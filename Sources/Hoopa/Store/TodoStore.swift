@@ -33,8 +33,9 @@ final class TodoStore: ObservableObject {
         return item
     }
 
+    /// A changed time records a new set-at moment: the time ring's first lap starts full from now.
     func setDue(_ due: Due?, for id: UUID) {
-        mutate(id) { $0.due = due }
+        mutate(id) { $0.due = due; $0.dueSetAt = due == nil ? nil : Date() }
     }
 
     /// The order while collapsed, and while expanded with "sort by time" on: timed to-dos soonest first, the rest in list order.

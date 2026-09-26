@@ -78,15 +78,22 @@ same order as the panel (your order, or by time when ⇅ is on), at most six
 rows and then "N more" (click it to expand):
 
 * **The ball** is the to-do's head: the bound app's icon on a grey disc, or a
-  green fuzzy ball with the title's first letter when nothing is bound. A
-  to-do with a time gets a ring around it: a faint full track and a solid arc
-  for what is left (a timer counts from its full length, a date from its last
-  24 hours). The ring, an unbound ball and the countdown turn orange when the
-  time is close and red when it has passed.
+  fuzzy ball with the title's first letter when nothing is bound. A to-do
+  with a time gets a ring around it that works like a boss's stacked health
+  bars. The time left is cut into bands: more than a week, a week, a day, an
+  hour, ten minutes, five minutes and the last minute. Each band is one full
+  lap of the ring in its own colour (blue, cyan, mint, green, yellow, orange,
+  red), and when a lap runs out the ring starts the next one full, so a
+  timer's last minutes are as visible as its first hour. The track under the
+  arc shows the next band's colour, the bar that is still to come. The first
+  lap starts full when the time is set: an hour's timer begins green, a date
+  next week begins cyan. An unbound ball takes the ring's colour. Once the
+  time has passed the ring is solid red.
 * **The title**, one line. The ball's icon is all the row says about the
   binding; the page name is on the chip in the expanded panel.
-* **The countdown** at the right edge, `Overdue` once the time has passed.
-  The absolute time is on the time chip in the expanded panel.
+* **The countdown** at the right edge: orange in the last ten minutes, red
+  in the last minute, `Overdue` once the time has passed. The absolute time
+  is on the time chip in the expanded panel.
 
 Click a row and the panel expands with that to-do's details open. Point at a
 row and ○ appears at its right end, where the countdown was: click it to mark
@@ -190,8 +197,8 @@ The ◔ button and the *Timer / Date…* menu item open the time picker:
 
 The time chip shows the countdown in its two largest units (`1d 03h`,
 `20h 00m`, `4m 10s`) followed by the absolute time (`14:30`, or `Tomorrow
-14:30`). It turns orange when a timer has less than ten minutes or a date less
-than an hour to go, and red with `Overdue` once the time has passed.
+14:30`). It turns orange in the last ten minutes, red in the last minute, and
+red with `Overdue` once the time has passed.
 
 At the moment itself Hoopa posts a system notification with the to-do's title
 ("Timer finished" or "Time's up", plus "Click to go back to …" when the

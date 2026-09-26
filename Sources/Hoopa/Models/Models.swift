@@ -141,15 +141,17 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var completedAt: Date? = nil
     var binding: ContextBinding? = nil
     var due: Due? = nil
+    var dueSetAt: Date? = nil      // when the time was set: the time ring's first lap starts here (missing in old data, falls back to createdAt)
 
     init(title: String, notes: String = "", binding: ContextBinding? = nil, due: Due? = nil) {
         self.title = title
         self.notes = notes
         self.binding = binding
         self.due = due
+        dueSetAt = due == nil ? nil : Date()
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, notes, isDone, createdAt, completedAt, binding, due }
+    private enum CodingKeys: String, CodingKey { case id, title, notes, isDone, createdAt, completedAt, binding, due, dueSetAt }
 
     /// A binding in an old format that cannot be read counts as unbound; the whole file must stay readable.
     /// Old data may hold multi-line content: the first line becomes the title, the rest the notes.
@@ -171,5 +173,6 @@ struct TodoItem: Identifiable, Codable, Equatable {
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
         binding = try? c.decodeIfPresent(ContextBinding.self, forKey: .binding)
         due = try? c.decodeIfPresent(Due.self, forKey: .due)
+        dueSetAt = try? c.decodeIfPresent(Date.self, forKey: .dueSetAt)
     }
 }

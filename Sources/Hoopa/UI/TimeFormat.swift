@@ -71,25 +71,29 @@ enum TimeFormat {
         let text: String       // the chip's main text (countdown; "Overdue" once past due)
         let detail: String     // the secondary text (absolute time)
         let overdue: Bool
-        let urgent: Bool       // within 10 minutes
+        let urgent: Bool       // the last 10 minutes (matching the time ring's yellow and orange bands, timers and dates alike)
+        let critical: Bool     // the last minute (the time ring's red lap)
+    }
+
+    /// The due moment: the moment itself for countdowns and date-times; a plain date from old data counts until the end of that day.
+    static func end(_ due: Due) -> Date {
+        switch due {
+        case .countdown(let end, _), .dateTime(let end): return end
+        case .date(let d):
+            let cal = Calendar.current
+            return cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: d)) ?? d
+        }
     }
 
     static func label(_ due: Due, now: Date) -> DueLabel {
+        let at = end(due)
+        let left = at.timeIntervalSince(now)
+        let detail: String
         switch due {
-        case .countdown(let end, _):
-            let left = end.timeIntervalSince(now)
-            return DueLabel(text: countdown(until: end, now: now),
-                            detail: absolute(end, now: now), overdue: left < 0, urgent: left >= 0 && left < 600)
-        case .date(let d):
-            // A plain date from old data: the countdown runs to the end of that day, the absolute time is the date only.
-            let cal = Calendar.current
-            let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: d)) ?? d
-            return DueLabel(text: countdown(until: end, now: now),
-                            detail: day(d, now: now), overdue: end < now, urgent: cal.isDate(d, inSameDayAs: now))
-        case .dateTime(let d):
-            let left = d.timeIntervalSince(now)
-            return DueLabel(text: countdown(until: d, now: now),
-                            detail: absolute(d, now: now), overdue: left < 0, urgent: left >= 0 && left < 3600)
+        case .countdown, .dateTime: detail = absolute(at, now: now)
+        case .date(let d): detail = day(d, now: now)      // a plain date from old data: the absolute time is the date only
         }
+        return DueLabel(text: countdown(until: at, now: now), detail: detail,
+                        overdue: left < 0, urgent: left >= 0 && left < 600, critical: left >= 0 && left < 60)
     }
 }
