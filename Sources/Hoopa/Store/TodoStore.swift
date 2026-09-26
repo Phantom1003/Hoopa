@@ -78,6 +78,13 @@ final class TodoStore: ObservableObject {
         scheduleSave()
     }
 
+    /// Delete all: every to-do, completed ones included.
+    func deleteAll() {
+        todos.forEach { Notifier.cancel($0.id) }
+        todos.removeAll()
+        scheduleSave()
+    }
+
     /// Moves dragged before target (after = false) or after it.
     func move(_ dragged: UUID, relativeTo target: UUID, after: Bool) {
         var act = active

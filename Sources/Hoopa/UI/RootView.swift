@@ -107,40 +107,79 @@ struct FrontGeometryKey: PreferenceKey {
     }
 }
 
-/// Expanded: the list of sticky-note cards; the composer does not occupy the top by default, + brings it up.
+/// Expanded: the list of sticky-note cards from the top of the panel, no title bar (a title and an empty row are both wasted space);
+/// The count, new, sort, delete all and the menu fold into a glass capsule floating at the bottom right; the list leaves its height free at the bottom so the last card can scroll above it.
+/// The composer does not occupy the top by default; + brings it up.
 struct ExpandedView: View {
     @EnvironmentObject var store: TodoStore
     @EnvironmentObject var permissions: PermissionState
     @EnvironmentObject var coordinator: AppCoordinator
     @State private var showDone = false
+    /// The confirmation before deleting everything.
+    @State private var confirmDeleteAll = false
     /// Sort by time (remembered). Only the display order: switched off, the list returns to its own order.
     @AppStorage("sortByTime") private var sortByTime = false
     private static let reorder = Animation.smooth(duration: 0.3)
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            if !permissions.accessibility { permissionBanner }
+            if !permissions.accessibility { permissionBanner.padding(.top, 10) }
             // The composer is hidden by default and + brings it up; always shown when there are no to-dos at all.
-            if coordinator.adding || store.active.isEmpty { InputPill().padding(.horizontal, 12) }
+            if coordinator.adding || store.active.isEmpty {
+                InputPill().padding(.horizontal, 12).padding(.top, permissions.accessibility ? 10 : 0)
+            }
             list
         }
         .frame(minWidth: 300, minHeight: 320)
         // The NSScrollView under the list is square and would show sharp corners outside the rounding: clip it round. The glass is a separate layer in RootView.
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .windowDraggable()
+        .overlay(alignment: .bottomTrailing) { controls }
         .overlay(alignment: .bottom) { toast }
     }
 
-    private var header: some View {
+    /// The room left at the bottom of the list and under the toast: the control capsule's height plus its distance to the edge.
+    private static let controlsInset: CGFloat = 48
+
+    /// The control capsule at the bottom right: count, new, sort, delete all, menu. Floats over the list (see controlsInset).
+    private var controls: some View {
         HStack(spacing: 8) {
-            Text("Hoopa").font(.system(size: 13, weight: .semibold)).foregroundStyle(Style.text)
-            Spacer()
             if !store.active.isEmpty {
                 Text("\(store.active.count) items").font(.caption).foregroundStyle(Style.secondary)
             }
             addButton
             sortButton
+            deleteAllButton
+            menuButton
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .glass(Capsule())
+        .padding(12)
+    }
+
+    /// Delete all: every to-do, completed ones included, after a confirmation.
+    private var deleteAllButton: some View {
+        Button { confirmDeleteAll = true } label: {
+            Image(systemName: "trash.circle")
+                .foregroundStyle(Style.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(store.todos.isEmpty)
+        .help("Delete all to-dos")
+        .confirmationDialog("Delete all to-dos?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
+            Button("Delete All", role: .destructive) {
+                coordinator.selectedID = nil
+                store.deleteAll()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Every to-do, including completed ones, will be removed. This can't be undone.")
+        }
+    }
+
+    private var menuButton: some View {
             Menu {
                 Toggle("Keep Panel on Top", isOn: Binding(
                     get: { coordinator.alwaysOnTop },
@@ -163,12 +202,6 @@ struct ExpandedView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .contentShape(Rectangle())
-        .windowDraggable()
     }
 
     /// The sort-by-time toggle: timed to-dos first, soonest first (overdue at the very top), untimed ones after them in their own order;
@@ -233,7 +266,8 @@ struct ExpandedView: View {
                         }
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.top, 8)
+                    .padding(.bottom, Self.controlsInset)
                     // A click on the space between cards: closes the open details.
                     .contentShape(Rectangle())
                     .onTapGesture { coordinator.selectedID = nil }
@@ -304,7 +338,7 @@ struct ExpandedView: View {
                 .padding(.vertical, 7)
                 .background(Capsule().fill(.ultraThickMaterial))
                 .shadow(radius: 4)
-                .padding(.bottom, 12)
+                .padding(.bottom, Self.controlsInset)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.easeOut(duration: 0.2), value: coordinator.toast)
         }

@@ -39,11 +39,15 @@ Show or hide it with **⌃⌥T** or a left click on the menu bar icon. A right
 click on the icon gives a menu with *Show/Hide Panel*, *Expand/Collapse* and
 *Quit*.
 
-The header holds the item count, **+** (the composer), **⇅** (sort by time)
-and the **⋯** menu: *Keep Panel on Top*, *Show Completed*, *Language*, the
+The panel has no header: the list starts at the top. The item count, **+**
+(the composer), **⇅** (sort by time), the trash button and the **⋯** menu
+float in a glass capsule at the bottom right, and the list leaves room under
+its last card so that card can scroll clear of the capsule. The trash button
+deletes every to-do, completed ones included, after a confirmation. The ⋯
+menu holds *Keep Panel on Top*, *Show Completed*, *Language*, the
 Accessibility status, *Clear Completed*, the shortcut reminder and *Quit
 Hoopa*. While Accessibility is not granted, an orange banner with a *Grant*
-button sits under the header.
+button sits at the top of the panel.
 
 Each to-do is a card:
 
@@ -93,7 +97,7 @@ The panel starts in whichever state it was left in.
 
 ## Adding a to-do
 
-Press **+** in the header (or the "+ Add a to-do" row of an empty collapsed
+Press **+** in the capsule (or the "+ Add a to-do" row of an empty collapsed
 list). The composer appears above the list, and stays there while the list is
 empty:
 
@@ -197,7 +201,7 @@ Hoopa starts.
 
 ## Sorting
 
-⇅ in the header switches the list between your own order and time order.
+⇅ in the capsule switches the list between your own order and time order.
 Sorted by time, to-dos with a time come first, soonest first, with overdue
 ones at the top, and the rest keep their manual order after them, in the
 groups *Overdue*, *Today*, *Tomorrow*, *Later* and *Unscheduled*. New to-dos

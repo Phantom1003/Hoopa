@@ -12,6 +12,10 @@
 "Accessibility Access: Granted" = "辅助功能权限：已授予";
 "Grant Accessibility Access…" = "授予辅助功能权限…";
 "Clear Completed" = "清除已完成";
+"Delete all to-dos" = "全部删除";
+"Delete all to-dos?" = "删除全部待办？";
+"Every to-do, including completed ones, will be removed. This can't be undone." = "所有待办（包括已完成的）都会被删除，无法撤销。";
+"Delete All" = "全部删除";
 "Press ⌃⌥T to show / hide the panel" = "快捷键 ⌃⌥T 显示 / 隐藏面板";
 "Quit Hoopa" = "退出 Hoopa";
 "Accessibility access is needed to detect windows and jump back" = "需要“辅助功能”权限才能识别窗口和跳转";
