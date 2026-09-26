@@ -20,28 +20,71 @@ extension ContextBinding {
     var pageName: String { summary.isEmpty ? appName : summary }
 }
 
-/// The binding chip: app icon + page name, click to jump.
+/// The binding chip: app icon + page name. action: a click jumps (no extra ↗, the click itself is the jump); onRemove: the × on the right removes the binding.
 struct BindingChip: View {
     let binding: ContextBinding
     var jumping = false
-    var showArrow = true     // no ↗ while creating, jumping is not possible yet
-    var bare = false         // no capsule background of its own (when placed inside another capsule)
+    var bare = false                    // no capsule background of its own (when placed inside another capsule)
+    var action: (() -> Void)? = nil     // click: jump (not passed when the chip sits inside another button in the composer)
+    var help: String? = nil
+    var onRemove: (() -> Void)? = nil   // the × on the right, removes the binding
 
     var body: some View {
-        HStack(spacing: 5) {
-            AppIcon(binding: binding)
-            // The important part of a page title comes first ("Title | Site"), so truncate the tail when it does not fit, never the middle (that leaves "Ad…ion").
-            Text(binding.pageName)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            if jumping {
-                ProgressView().controlSize(.mini)
-            } else if showArrow {
-                Image(systemName: "arrow.up.forward").font(.system(size: 9, weight: .bold)).foregroundStyle(Style.secondary)
+        HStack(spacing: 6) {
+            ChipButton(action: action, help: help) {
+                HStack(spacing: 5) {
+                    AppIcon(binding: binding)
+                    // The important part of a page title comes first ("Title | Site"), so truncate the tail when it does not fit, never the middle (that leaves "Ad…ion").
+                    Text(binding.pageName)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if jumping { ProgressView().controlSize(.mini) }
+                }
             }
+            if let onRemove { ChipRemoveButton(help: "Unbind", action: onRemove) }
         }
         .foregroundStyle(Style.text)
         .modifier(OptionalChip(enabled: !bare))
+    }
+}
+
+/// The clickable part of the chip: wrapped in a button only with an action (the composer's chip sits inside another button and gets no extra layer).
+struct ChipButton<Content: View>: View {
+    let action: (() -> Void)?
+    var help: String? = nil
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if let action {
+            Button(action: action) { content().contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .modifier(OptionalHelp(text: help))
+        } else {
+            content().modifier(OptionalHelp(text: help))
+        }
+    }
+}
+
+/// The × at the right end of the chip: removes the binding / time.
+struct ChipRemoveButton: View {
+    let help: LocalizedStringKey
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Style.secondary)
+                .frame(width: 12, height: 12).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+/// Hover tooltip only when there is text.
+struct OptionalHelp: ViewModifier {
+    let text: String?
+    func body(content: Content) -> some View {
+        if let text { content.help(text) } else { content }
     }
 }
 
@@ -70,22 +113,31 @@ struct DueText: View {
     }
 }
 
-/// The time chip: countdown (refreshed every second) + absolute time, the same for timers and date-times.
+/// The time chip: countdown (refreshed every second) + absolute time, the same for timers and date-times. action: a click changes the time; onRemove: the × on the right removes the time.
 struct DueChip: View {
     let due: Due
     var showDetail = true
     var bare = false
+    var action: (() -> Void)? = nil
+    var help: String? = nil
+    var onRemove: (() -> Void)? = nil
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let l = TimeFormat.label(due, now: ctx.date)
-            let chip = HStack(spacing: 4) {
-                Text(l.text).monospacedDigit()
-                if showDetail {
-                    // Countdown first, the absolute time after it: with a separator dot, in grey.
-                    Text("·").foregroundStyle(Style.tertiary)
-                    Text(l.detail).monospacedDigit().foregroundStyle(Style.secondary)
+            HStack(spacing: 6) {
+                // When the absolute time is not shown (no room) hover shows it, replacing the button's own tooltip.
+                ChipButton(action: action, help: showDetail ? help : l.detail) {
+                    HStack(spacing: 4) {
+                        Text(l.text).monospacedDigit()
+                        if showDetail {
+                            // Countdown first, the absolute time after it: with a separator dot, in grey.
+                            Text("·").foregroundStyle(Style.tertiary)
+                            Text(l.detail).monospacedDigit().foregroundStyle(Style.secondary)
+                        }
+                    }
                 }
+                if let onRemove { ChipRemoveButton(help: "Remove Time", action: onRemove) }
             }
             .lineLimit(1)
             .fixedSize()          // the time must never wrap to two lines
@@ -94,8 +146,6 @@ struct DueChip: View {
             .modifier(OptionalChip(enabled: !bare, tint: l.overdue ? Style.overdue.opacity(0.2)
                                                     : (l.urgent ? Style.urgent.opacity(0.15) : Style.chip)))
             .layoutPriority(1)
-            // When the absolute time is not shown (collapsed) hover shows it; when shown, no tooltip, so the outer button's tooltip is not covered.
-            if showDetail { chip } else { chip.help(l.detail) }
         }
     }
 }

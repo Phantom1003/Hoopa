@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A to-do: a sticky-note card. Normally one row: ○ title (a small icon at the end when there are notes), above it a flush-left row with the binding chip (click to jump) and the time chip (click to change the time),
+/// A to-do: a sticky-note card. Normally one row: ○ title (a small icon at the end when there are notes), above it a flush-left row with the binding chip (click to jump) and the time chip (click to change the time), the × right of a chip removes the binding / time;
 /// on hover the action buttons appear at the top right. A click opens the details: title and notes are editable (saved as typed) and the action buttons stay; click empty space or press Esc to close.
 struct TodoCard: View {
     let todo: TodoItem
@@ -116,18 +116,17 @@ struct TodoCard: View {
         }
     }
 
-    /// The chip row: the binding chip (click to jump), the time chip (click to change the time). detail: whether the time chip carries the absolute time.
+    /// The chip row: the binding chip (click to jump), the time chip (click to change the time), each with a × on its right that removes the binding / time.
+    /// detail: whether the time chip carries the absolute time.
     private func chips(detail: Bool) -> some View {
         HStack(spacing: 6) {
             if let b = todo.binding {
-                Button { coordinator.jump(todo) } label: { BindingChip(binding: b, jumping: isJumping) }
-                    .buttonStyle(.plain)
-                    .help(b.detailDescription)
+                BindingChip(binding: b, jumping: isJumping, action: { coordinator.jump(todo) }, help: b.detailDescription,
+                            onRemove: { store.setBinding(nil, for: todo.id) })
             }
             if let d = todo.due {
-                Button { showDue.toggle() } label: { DueChip(due: d, showDetail: detail) }
-                    .buttonStyle(.plain)
-                    .help("Change time")
+                DueChip(due: d, showDetail: detail, action: { showDue.toggle() }, help: String(localized: "Change time"),
+                        onRemove: { store.setDue(nil, for: todo.id) })
             }
         }
     }

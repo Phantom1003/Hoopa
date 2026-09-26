@@ -77,7 +77,7 @@ struct InputPill: View {
                 selectedChip(clear: { coordinator.pendingBinding = nil },
                              reselect: { coordinator.pickPendingBinding() },
                              help: String(localized: "Will bind to:\n\(b.detailDescription)\nClick to choose again")) {
-                    BindingChip(binding: b, showArrow: false, bare: true)
+                    BindingChip(binding: b, bare: true)
                 }
             } else {
                 Button { coordinator.pickPendingBinding() } label: {
