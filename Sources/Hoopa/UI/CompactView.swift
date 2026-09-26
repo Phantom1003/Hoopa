@@ -3,22 +3,26 @@ import SwiftUI
 /// Collapsed: a mini list on a glass slab. One row per to-do: the ball (the to-do's head: the bound app's icon, a green fluffy ball when unbound; timed ones ringed by the time ring),
 /// title · page name, the countdown at the right end (orange when nearly due, red once overdue); the last row is "+ Add" (expands the panel and opens the composer).
 /// Same order as the panel (manual order; time order while sort by time is on), at most 6 rows, then "+N more" (opens the panel).
-/// Clicking a row: jumps when bound, otherwise expands the panel to its details; pointing at a row shows ○ at the right end, click it to mark done. Fixed width, independent of the content.
-/// Expanding is the ear outside the slab's left edge (see EarToggle). The glass is drawn by RootView's plate (collapsed, the plate is the slab), only the content lives here.
+/// Clicking a row: expands the panel and opens that to-do's details (jumping is the chip in the details, or the context menu); pointing at a row turns the ball into ○, click it to mark done.
+/// Fixed width, independent of the content. Expanding is the ear outside the slab's left edge (see EarToggle). The glass is drawn by RootView's plate (collapsed, the plate is the slab), only the content lives here.
 struct CompactView: View {
     @EnvironmentObject var store: TodoStore
     @EnvironmentObject var coordinator: AppCoordinator
     @AppStorage("sortByTime") private var sortByTime = false
-    /// The row pointed at: highlighted, ○ at the right end.
+    /// The row pointed at: highlighted, the ball becomes ○.
     @State private var hovered: UUID?
     static let radius: CGFloat = 18       // same as the panel: the window mask has only one corner radius
     static let green = Color(red: 0.62, green: 0.80, blue: 0.30)   // the default green: the unbound fluffy ball, also the time ring's one-hour band
-    private let width: CGFloat = 236          // content width (260 with the 12 inset on each side, narrower than the panel)
-    private let rowHeight: CGFloat = 25       // as tall as ⌄
-    private let rowGap: CGFloat = 3
-    private let ball: CGFloat = 22
+    private let width: CGFloat = 200          // content width (220 with the 10 inset on each side, much narrower than the panel)
+    private let inset: CGFloat = 10           // the slab's horizontal inset
+    private let insetV: CGFloat = 8           // vertical inset
+    private let rowHeight: CGFloat = 22       // row height = the ball's diameter + 1 above and below; rows are only rowGap apart
+    private let rowGap: CGFloat = 2
+    private let ball: CGFloat = 20
     private let maxRows = 6
     private let gap: CGFloat = 6
+    /// The slab is at least this tall: the ear (Ear.top…Ear.top+Ear.height) has to land on the straight part of the left edge, above the bottom corner.
+    private static let minHeight = Ear.top + Ear.height + CompactView.radius
 
     private var items: [TodoItem] { sortByTime ? store.byUrgency : store.active }
 
@@ -41,8 +45,9 @@ struct CompactView: View {
             addRow
         }
         .frame(width: width, alignment: .leading)
-        .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 10)
-        .font(.system(size: 13, weight: .medium))
+        .padding(.horizontal, inset).padding(.vertical, insetV)
+        .frame(minHeight: Self.minHeight, alignment: .top)
+        .font(.system(size: 12, weight: .medium))
         .foregroundStyle(Style.text)
         .background(GeometryReader { g in
             // The slab proper (without the ear) is reported to RootView (root view coordinates): collapsed, the plate sits here; expanding, it grows out of here.
@@ -65,10 +70,10 @@ struct CompactView: View {
             HStack(spacing: gap) {
                 ZStack {
                     Circle().fill(Self.green.opacity(0.35))
-                    Image(systemName: "plus").font(.system(size: 11, weight: .semibold)).foregroundStyle(Style.secondary)
+                    Image(systemName: "plus").font(.system(size: 10, weight: .semibold)).foregroundStyle(Style.secondary)
                 }
                 .frame(width: ball, height: ball)
-                Text("Add a to-do").font(.system(size: 12)).foregroundStyle(Style.tertiary)
+                Text("Add a to-do").font(.system(size: 11)).foregroundStyle(Style.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: rowHeight)
@@ -78,23 +83,28 @@ struct CompactView: View {
         .help("Add a to-do")
     }
 
-    /// A row: ball, title · page name …… countdown [○]. A click jumps (or shows the details when unbound).
+    /// A row: ball, title · page name …… countdown. A click expands the panel to the details (no direct jump: jumping is the chip in the details, or the context menu).
+    /// Pointing at the row turns the ball into ○ (like a mail list where the avatar becomes a checkbox); click ○ to mark done. No slot for ○ on the right, the insets on both sides stay equal, the countdown hugs the right edge.
     private func row(_ t: TodoItem) -> some View {
         let isHovered = hovered == t.id
         return HStack(spacing: gap) {
-            ballView(t)
-            titleLine(t)
-            Spacer(minLength: 8)
-            if let d = t.due { time(d) }
-            // ○ keeps its slot at all times (shown only when pointed at), so the countdown does not shift on hover.
             Button { store.toggleDone(t.id) } label: {
-                Image(systemName: "circle").font(.system(size: 14)).foregroundStyle(Style.secondary)
-                    .frame(width: 16, height: rowHeight).contentShape(Rectangle())
+                ZStack {
+                    ballView(t).opacity(isHovered ? 0 : 1)
+                    Circle().strokeBorder(Style.secondary, lineWidth: 1.5)
+                        .padding(1)
+                        .opacity(isHovered ? 1 : 0)
+                }
+                .frame(width: ball, height: ball)
+                .contentShape(Circle())
+                .animation(.easeOut(duration: 0.1), value: isHovered)
             }
             .buttonStyle(.plain)
-            .help("Mark as done")
-            .opacity(isHovered ? 1 : 0)
             .allowsHitTesting(isHovered)
+            .help("Mark as done")
+            titleLine(t)
+            Spacer(minLength: 6)
+            if let d = t.due { time(d) }
         }
         .frame(height: rowHeight)
         .contentShape(Rectangle())
@@ -102,20 +112,15 @@ struct CompactView: View {
         .onHover { inside in
             if inside { hovered = t.id } else if hovered == t.id { hovered = nil }
         }
-        .onTapGesture { open(t) }
-        .help(t.binding.map { String(localized: "Back to \($0.shortDescription)") } ?? String(localized: "Show details"))
+        .onTapGesture { coordinator.expand(showing: t.id) }
+        .help("Show details")
         .contextMenu {
             if t.binding != nil { Button("Jump to Bound Page") { coordinator.jump(t) } }
-            Button("Show details") { coordinator.expand(showing: t.id) }
             Button("Mark as Done") { store.toggleDone(t.id) }
             Divider()
             Button("Expand") { coordinator.isCompact = false }
             Button("Quit Hoopa") { coordinator.onQuit?() }
         }
-    }
-
-    private func open(_ t: TodoItem) {
-        if t.binding != nil { coordinator.jump(t) } else { coordinator.expand(showing: t.id) }
     }
 
     /// The ball: the app icon for a bound page (a spinner while jumping); a green fluffy ball with the title's first character when unbound. Timed ones are ringed by the time ring.
