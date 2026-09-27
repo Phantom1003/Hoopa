@@ -24,8 +24,11 @@ deadline in view.
   actions), never through the system input queue. A key is sent only after
   the Accessibility focus is confirmed to be on the target, so nothing lands
   in a text field you are typing in.
-* **Local data only.** To-dos live in one JSON file under
-  `~/Library/Application Support/Hoopa/`. Nothing leaves the machine.
+* **Your data stays in files you can see.** To-dos live in one JSON file
+  under `~/Library/Application Support/Hoopa/`. Nothing leaves the machine
+  unless you switch on [sync](#sync-between-macs), and then it is a copy of
+  that file in a folder of yours (iCloud Drive, or any folder another
+  service keeps in step). There is no account and no server of Hoopa's.
 
 ## The panel
 
@@ -44,10 +47,11 @@ The panel has no header: the list starts at the top. The item count, **+**
 float in a glass capsule at the bottom right, and the list leaves room under
 its last card so that card can scroll clear of the capsule. The trash button
 deletes every to-do, completed ones included, after a confirmation. The ⋯
-menu holds *Keep Panel on Top*, *Show Completed*, *Language*, the
-Accessibility status, *Clear Completed*, the version with the update
-controls (see [Software update](#software-update)), the shortcut reminder
-and *Quit Hoopa*. While a newer release exists, an accent-coloured **⬇**
+menu holds *Keep Panel on Top*, *Show Completed*, *Language*, *Sync* (see
+[Sync between Macs](#sync-between-macs)), the Accessibility status, *Clear
+Completed*, the version with the update controls (see
+[Software update](#software-update)), the shortcut reminder and *Quit
+Hoopa*. While a newer release exists, an accent-coloured **⬇**
 joins the capsule in front of ⋯. While Accessibility is not granted, an
 orange banner with a *Grant* button sits at the top of the panel.
 
@@ -238,6 +242,47 @@ add the language to `CFBundleLocalizations` in `Resources/Info.plist` and to
 `AppLanguage.swift`. `en.lproj` holds only the plural rules
 (`Localizable.stringsdict`). Keys a translation lacks fall back to English.
 
+## Sync between Macs
+
+*Sync* in the ⋯ menu mirrors the to-dos into a folder your Macs share and
+merges every change the other Macs put there:
+
+* **iCloud Drive** uses `iCloud Drive/Hoopa/todos.json`. Plain files in
+  iCloud Drive sync without any entitlement, so this works with the ad hoc
+  signed release builds and needs no developer account.
+* **Other Folder…** picks any folder some other service keeps in step
+  (Dropbox, Syncthing, a shared volume, …). Hoopa keeps `todos.json` in it.
+* **Off** stops the mirror. The copy in the folder is left for the other
+  Macs.
+
+Switch it on on every Mac, pointing at the same folder. The first Mac writes
+its list; the next merges the folder's copy with its own and writes the union
+back. From then on a change on one Mac is in the folder a second or two
+later and on the others as soon as the service has carried it over (iCloud
+Drive usually takes a few seconds). *Show Sync Folder in Finder* opens the
+folder. The sync setting itself is per Mac, like the other preferences.
+
+The local file stays the working copy, so Hoopa keeps working while iCloud
+is signed out or the folder is offline, and catches up when it is back.
+Merging is per part of a to-do: the title, the notes, the done mark, the
+binding and the time each come from the Mac that changed them last, so a
+title edited here and notes edited there both survive; only the same part
+edited on both Macs keeps the later edit. A deletion beats every change made
+before it, and a change made after it brings the to-do back (deletions are
+remembered for 90 days). Manual order comes from the Mac that reordered
+last, with the to-dos it had not seen on top. The Macs' clocks decide what
+"later" means. The conflict copies iCloud Drive sets aside when
+both Macs wrote at the same moment are merged the same way. A folder copy
+that cannot be read is logged and left alone rather than overwritten; changes
+made meanwhile stay on this Mac until the copy reads again.
+
+What travels: titles, notes, times, done marks, order and bindings. A
+binding is only as portable as its anchors: a browser tab URL or a Slack or
+Obsidian link jumps on the other Mac too; a document path, an app not
+installed there or a window title does not, and the jump falls back to
+opening the app (see [Jumping back](#jumping-back)). Timers and dates notify
+on every Mac.
+
 ## Software update
 
 The ⋯ menu ends with the version, *Check for Updates Automatically* and
@@ -342,20 +387,29 @@ locally.
 ## Data and preferences
 
 * To-dos: `~/Library/Application Support/Hoopa/todos.json`, written shortly
-  after every change. A binding or time an older version cannot read is
-  dropped for that to-do; the file itself still loads.
+  after every change: an object with `todos` (in list order, each with an
+  `updatedAt` stamp and, under `changed`, when each part last changed),
+  `deleted` (the ids deleted in the last 90 days, so a
+  sync merge does not bring them back) and `orderedAt` (the last manual
+  reorder). The bare array older versions wrote still loads. A binding or
+  time an older version cannot read is dropped for that to-do; the file
+  itself still loads. With sync on, the same document is mirrored to
+  `todos.json` in the sync folder.
 * Log: `~/Library/Application Support/Hoopa/hoopa.log`, started over once it
   passes 2 MB.
 * Preferences (`local.phantom.hoopa`): the panel frame, the collapsed state,
-  the sort setting, the interface language and whether updates are checked
-  automatically.
+  the sort setting, the interface language, whether updates are checked
+  automatically and the sync folder (`syncFolder`, a path; the iCloud Drive
+  folder's path stands for *iCloud Drive*).
 
 ## Diagnostics
 
 * The log records every pick (the interfaces the app was found to offer, the
   anchors kept), every jump (which anchor succeeded and how it was
-  confirmed), every permission change, and every update check and install
-  step (the version found, the download, why an install was refused).
+  confirmed), every permission change, every update check and install step
+  (the version found, the download, why an install was refused), and every
+  sync step (the folder in use, what was merged in and written out, a copy
+  that could not be read).
 * To see what an app exposes before binding something in it, dump its
   Accessibility tree:
 
@@ -399,7 +453,8 @@ Sources/Hoopa/
   App/Notifier.swift         Due notifications
   App/Log.swift              File log
   Models/Models.swift        TodoItem, ContextBinding, the Anchor kinds, Due
-  Store/TodoStore.swift      JSON persistence, ordering, sort by time
+  Store/TodoStore.swift      JSON persistence, ordering, sort by time, the sync merge
+  Store/SyncFolder.swift     The sync folder: mode preference, coordinated reads / writes, conflict versions, the watch
   Picker/WindowPicker.swift  Full-screen picking overlay: highlights windows / elements
   Context/ContextCapture.swift   Picking: the window / element under the mouse, anchors in order
   Context/ContextRestore.swift   Jumping: try the anchors in order, confirm each step

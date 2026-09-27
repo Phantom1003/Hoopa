@@ -85,9 +85,21 @@ swift build             # compile check only: no bundle, icons or translations
 
 ## Data and diagnostics
 
-* To-dos: `~/Library/Application Support/Hoopa/todos.json`. The decoder
-  drops a binding or time it cannot read instead of failing the file; keep
-  that when changing the model, and do not add migrations beyond that.
+* To-dos: `~/Library/Application Support/Hoopa/todos.json`, a `TodoDocument`
+  (`todos`, `deleted` tombstones, `orderedAt`; the bare array of older
+  versions still loads). The decoder drops a binding or time it cannot read
+  instead of failing the file; keep that when changing the model, and do not
+  add migrations beyond that.
+* Sync (`Store/SyncFolder.swift`, `TodoStore.merge`): with `syncFolder` set,
+  the same document is mirrored to `<folder>/todos.json` and every outside
+  change merged back per part of a to-do (`TodoItem.merged`: title, notes,
+  done, binding, due each from the copy that stamped it last in `changed`;
+  tombstones beat older `updatedAt`; order from the copy reordered last).
+  Every edit must go through `mutate`, which stamps the parts that differ;
+  a new part needs a stamp in `FieldStamps`, `stamp` and `merged`. A folder
+  copy that cannot be
+  decoded is never overwritten. Test with two `TodoStore`s on temp data
+  directories against one folder; no app relaunch needed.
 * Log: `~/Library/Application Support/Hoopa/hoopa.log` (a pick logs the
   probed interfaces and the anchors kept; a jump logs which anchor won and
   how it was confirmed). Code comments, log lines and UI strings are English.

@@ -56,8 +56,10 @@ click.
   version once a day (switch it off in the ⋯ menu) and, when you say so,
   installs it in place and relaunches.
 - **English by default, Simplified Chinese built in.**
-- **Local data only.** One JSON file in Application Support. No account, no
-  sync; the update check is the only thing that ever goes online.
+- **Your data in files you can see.** One JSON file in Application Support;
+  switch on *Sync* to mirror it through iCloud Drive or any folder your Macs
+  share, merged per to-do. No account, no server; the update check is the
+  only thing that ever goes online.
 
 ## Quick start
 

@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         coordinator.onAlwaysOnTopChanged = { [weak self] on in self?.panel.setAlwaysOnTop(on) }
         coordinator.onQuit = { NSApp.terminate(nil) }
         updater.notify = { [weak self] text, seconds in self?.coordinator.showToast(text, seconds: seconds) }
+        store.notify = { [weak self] text in self?.coordinator.showToast(text) }
         // Collapsed at the last quit: launch straight into the collapsed state without the collapse animation (onCompactChanged is not hooked up yet).
         let startCompact = UserDefaults.standard.bool(forKey: "compact")
         if startCompact { coordinator.restoreCompact() }
@@ -51,10 +52,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // Notifications scheduled by the last run may be gone; schedule them again.
         store.todos.forEach(Notifier.schedule)
         Log.write("Version \(Updater.version)")
+        // The sync folder chosen last time, now that a missing one can be reported in a toast.
+        store.startSync()
         updater.start()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Saves are delayed a moment after each change; the last ones must not be lost to the quit (or to the updater's relaunch).
+    func applicationWillTerminate(_ notification: Notification) { store.flush() }
 
     // MARK: Notifications
 

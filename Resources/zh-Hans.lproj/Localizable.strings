@@ -81,6 +81,21 @@
 "Reading page info…" = "正在读取页面信息…";
 "Bound: %@" = "已绑定：%@";
 
+/* 同步 */
+"Sync" = "同步";
+"Off" = "关闭";
+"iCloud Drive" = "iCloud 云盘";
+"Other Folder…" = "其他文件夹…";
+"Show Sync Folder in Finder" = "在访达中显示同步文件夹";
+"Sync Here" = "在此同步";
+"Choose a folder your Macs share (iCloud Drive, Dropbox, Syncthing, …). Hoopa keeps todos.json in it." = "选择一个几台 Mac 共用的文件夹（iCloud 云盘、Dropbox、Syncthing 等）。Hoopa 会把 todos.json 放在里面。";
+"Syncing via iCloud Drive" = "已通过 iCloud 云盘同步";
+"Syncing with the folder %@" = "已与文件夹 %@ 同步";
+"Sync is off; to-dos stay on this Mac" = "已关闭同步，待办只保存在这台 Mac 上";
+"iCloud Drive is not available on this Mac" = "这台 Mac 上没有可用的 iCloud 云盘";
+"The sync folder is not available: %@" = "同步文件夹不可用：%@";
+"Sync failed: %@" = "同步失败：%@";
+
 /* 软件更新 */
 "Version %@" = "版本 %@";
 "Check for Updates Automatically" = "自动检查更新";

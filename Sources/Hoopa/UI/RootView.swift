@@ -233,6 +233,7 @@ struct ExpandedView: View {
                 Picker("Language", selection: Binding(get: { AppLanguage.current }, set: { AppLanguage.switchTo($0) })) {
                     ForEach(AppLanguage.allCases) { Text(verbatim: $0.name).tag($0) }
                 }
+                syncMenu
                 Divider()
                 Button(permissions.accessibility ? "Accessibility Access: Granted" : "Grant Accessibility Access…") { permissions.request() }
                     .disabled(permissions.accessibility)
@@ -251,6 +252,33 @@ struct ExpandedView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+    }
+
+    /// Sync ▸ in the ⋯ menu: off, iCloud Drive or a folder of your choice (one Dropbox, Syncthing or the like keeps in step); the one in use is ticked.
+    /// Ticking iCloud Drive off, or Off, stops the mirror; the folder item opens the chooser every time, so the folder can be changed. See SyncFolder.
+    private var syncMenu: some View {
+        Menu("Sync") {
+            Toggle("Off", isOn: Binding(get: { store.syncMode == .off }, set: { if $0 { store.setSync(.off) } }))
+            Toggle("iCloud Drive", isOn: Binding(get: { store.syncMode == .iCloudDrive }, set: { store.setSync($0 ? .iCloudDrive : .off) }))
+            Toggle("Other Folder…", isOn: Binding(get: { if case .folder = store.syncMode { return true } else { return false } }, set: { _ in chooseSyncFolder() }))
+            if let folder = store.syncMode.folder {
+                Divider()
+                Button("Show Sync Folder in Finder") { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
+            }
+        }
+    }
+
+    /// The folder chooser for Sync ▸ Other Folder…: the panel is non-activating, so the app is activated for the dialog.
+    private func chooseSyncFolder() {
+        let dialog = NSOpenPanel()
+        dialog.canChooseDirectories = true
+        dialog.canChooseFiles = false
+        dialog.canCreateDirectories = true
+        dialog.prompt = String(localized: "Sync Here")
+        dialog.message = String(localized: "Choose a folder your Macs share (iCloud Drive, Dropbox, Syncthing, …). Hoopa keeps todos.json in it.")
+        if case .folder(let current) = store.syncMode { dialog.directoryURL = current }
+        NSApp.activate(ignoringOtherApps: true)
+        if dialog.runModal() == .OK, let url = dialog.url { store.setSync(SyncMode.forFolder(url)) }
     }
 
     /// The update item in the ⋯ menu: normally "Check for Updates…", "Update to X and Relaunch" once a newer version exists, and only what it is doing while busy.
