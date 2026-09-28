@@ -44,7 +44,13 @@ struct RootView: View {
                                          overflow: flush,
                                          report: { coordinator.plateFrame = $0 }))
                     .animation(expanded ? Motion.panelGrow : Motion.panelShrink, value: plateKey)
-                    .allowsHitTesting(false)
+                    // The plate is what the window catches the mouse with. A transparent window only receives clicks where SwiftUI hit-tests something
+                    // (the window's event region is built from the hit-testable views, not from the pixels drawn: glass alone counts for nothing),
+                    // so with the plate out of hit testing every blank spot — the room around the cards, the ear's column, the slab's margins — fell through to whatever was behind the panel,
+                    // and only the cards themselves could be pressed. Hit-testable, the plate catches those clicks and, since nothing above it wants them, drags the window;
+                    // hovering anywhere over the glass now also brings the ear out and keeps the docked panel from tucking away. It stays the bottom of the stack: content above it is hit first.
+                    .contentShape(Rectangle())
+                    .windowDraggable()
                 if coordinator.isCompact {
                     CompactView()
                         .zIndex(1)

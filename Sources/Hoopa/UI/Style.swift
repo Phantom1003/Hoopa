@@ -53,8 +53,9 @@ extension View {
 }
 
 /// Liquid Glass background (glassEffect on macOS 26+), a translucent material on older systems.
-/// A nearly invisible tint under the glass: Liquid Glass with a custom shape writes no pixels into the window at all (and does not redraw while the custom shape animates),
-/// so a transparent window treats those areas as empty and lets clicks through to the window behind (standard shapes write a little, which is why it used to be fine). With the tint, wherever the glass is, clicks and drags are caught.
+/// A nearly invisible tint under the glass, so the glass has a surface of its own over a very dark or very bright desktop.
+/// It has nothing to do with the mouse: a transparent window's event region is built from the hit-testable views, not from the pixels drawn,
+/// so what the glass writes into the window makes no difference either way — whatever the panel must catch clicks with has to be hit-testable itself, see RootView's plate.
 /// Shapes are always standard (rounded rectangle, capsule); any other outline (the ear) is cut by the window's layer mask, see FirstMouseHostingView. glassEffectUnion does not merge, do not use it.
 struct GlassBackground<S: Shape>: ViewModifier {
     let shape: S
