@@ -48,6 +48,7 @@ struct CompactView: View {
         .frame(width: width, alignment: .leading)
         .padding(.horizontal, inset).padding(.vertical, insetV)
         .frame(minHeight: Self.minHeight, alignment: .top)
+        .contentShape(Rectangle())        // the whole slab drags the window, the room under a short list included
         .font(.system(size: 12, weight: .medium))
         .foregroundStyle(Style.text)
         .background(GeometryReader { g in
@@ -66,21 +67,20 @@ struct CompactView: View {
     }
 
     /// The only row of an empty list: a green + ball and grey text; a click expands the panel and opens the composer. Hidden while there are to-dos (the expanded panel has a +, this row would only repeat it).
+    /// A tap gesture like the to-do rows, not a Button: a button swallows the press, and the slab (which this row fills) could no longer be dragged by it.
     private var addRow: some View {
-        Button { coordinator.expandToAdd() } label: {
-            HStack(spacing: gap) {
-                ZStack {
-                    Circle().fill(Self.green.opacity(0.35))
-                    Image(systemName: "plus").font(.system(size: 10, weight: .semibold)).foregroundStyle(Style.secondary)
-                }
-                .frame(width: ball, height: ball)
-                Text("Add a to-do").font(.system(size: 11)).foregroundStyle(Style.tertiary)
+        HStack(spacing: gap) {
+            ZStack {
+                Circle().fill(Self.green.opacity(0.35))
+                Image(systemName: "plus").font(.system(size: 10, weight: .semibold)).foregroundStyle(Style.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: rowHeight)
-            .contentShape(Rectangle())
+            .frame(width: ball, height: ball)
+            Text("Add a to-do").font(.system(size: 11)).foregroundStyle(Style.tertiary)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: rowHeight)
+        .contentShape(Rectangle())
+        .onTapGesture { coordinator.expandToAdd() }
         .help("Add a to-do")
     }
 
