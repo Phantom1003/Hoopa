@@ -132,14 +132,124 @@ enum DueSpec: Equatable {
     }
 }
 
+/// A change time for the sync merge: a hybrid logical clock stamp. Ordered by the physical time, then a counter, then the Mac that made it.
+/// Every stamp a Mac makes is later than every stamp it has seen (see HybridClock), so a change made after another arrived always wins over it,
+/// whatever the two clocks say; wall time only orders changes made without knowledge of each other.
+/// Written as "2026-09-27T05:45:12.345Z/3/8f3a2c"; a plain date (files from before the clock) reads as counter 0 from nowhere.
+struct Stamp: Codable, Equatable, Hashable, Comparable {
+    var time: Int64      // milliseconds since 1970
+    var counter: Int
+    var node: String
+
+    static let zero = Stamp(time: 0, counter: 0, node: "")
+
+    init(time: Int64, counter: Int, node: String) {
+        self.time = time
+        self.counter = counter
+        self.node = node
+    }
+
+    init(date: Date) {
+        self.init(time: Int64((date.timeIntervalSince1970 * 1000).rounded()), counter: 0, node: "")
+    }
+
+    var date: Date { Date(timeIntervalSince1970: TimeInterval(time) / 1000) }
+
+    static func < (a: Stamp, b: Stamp) -> Bool {
+        (a.time, a.counter, a.node) < (b.time, b.counter, b.node)
+    }
+
+    /// Whole seconds go through the system formatter; the milliseconds are appended by hand (the formatter's fractional seconds do not round trip).
+    private static let formatter = ISO8601DateFormatter()
+
+    init(from decoder: Decoder) throws {
+        let text = try decoder.singleValueContainer().decode(String.self)
+        let parts = text.split(separator: "/", omittingEmptySubsequences: false)
+        var clockText = String(parts[0])
+        var millis: Int64 = 0
+        if let dot = clockText.firstIndex(of: "."), let z = clockText.lastIndex(of: "Z") {
+            let digits = String(clockText[clockText.index(after: dot)..<z]).prefix(3)
+            millis = Int64(digits.padding(toLength: 3, withPad: "0", startingAt: 0)) ?? 0
+            clockText.removeSubrange(dot..<z)
+        }
+        guard let date = Self.formatter.date(from: clockText) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "not a stamp: \(text)"))
+        }
+        self.init(time: Int64(date.timeIntervalSince1970.rounded()) * 1000 + millis, counter: 0, node: "")
+        if parts.count == 3 {
+            counter = Int(parts[1]) ?? 0
+            node = String(parts[2])
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        var clockText = Self.formatter.string(from: Date(timeIntervalSince1970: TimeInterval(time / 1000)))
+        clockText.removeLast()   // the Z
+        try c.encode(String(format: "%@.%03dZ/%d/%@", clockText, Int(time % 1000), counter, node))
+    }
+}
+
+/// This Mac's hybrid logical clock: the source of every stamp made here. A new stamp is the wall time when that is ahead of everything seen,
+/// otherwise the last stamp with the counter moved on; a stamp that arrives from another Mac moves the clock past it first.
+/// The Mac's id and the last stamp (time and counter) are kept in the preferences, so neither a wall clock set back nor a relaunch while
+/// the clock is held past the wall by a stamp seen makes old stamps again.
+final class HybridClock {
+    private static let nodeKey = "syncNode", timeKey = "syncClock", counterKey = "syncCounter"
+    let node: String
+    private(set) var last: Stamp
+
+    init() {
+        let defaults = UserDefaults.standard
+        if let n = defaults.string(forKey: Self.nodeKey), !n.isEmpty {
+            node = n
+        } else {
+            node = String(UUID().uuidString.prefix(6)).lowercased()
+            defaults.set(node, forKey: Self.nodeKey)
+        }
+        last = Stamp(time: defaults.object(forKey: Self.timeKey) as? Int64 ?? 0, counter: defaults.integer(forKey: Self.counterKey), node: node)
+    }
+
+    private static var wall: Int64 { Int64((Date().timeIntervalSince1970 * 1000).rounded()) }
+
+    /// A stamp later than every stamp made or seen so far.
+    func now() -> Stamp {
+        let wall = Self.wall
+        last = wall > last.time ? Stamp(time: wall, counter: 0, node: node) : Stamp(time: last.time, counter: last.counter + 1, node: node)
+        remember()
+        return last
+    }
+
+    /// A stamp from another Mac: the next stamp made here comes after it.
+    func observe(_ seen: Stamp) {
+        guard seen > last else { return }
+        if seen.time - Self.wall > 3600_000 { Log.write("Sync: a stamp from \(seen.node) is \((seen.time - Self.wall) / 60_000) min ahead of this Mac's clock") }
+        last = Stamp(time: seen.time, counter: seen.counter, node: node)
+        remember()
+    }
+
+    private func remember() {
+        let defaults = UserDefaults.standard
+        defaults.set(last.time, forKey: Self.timeKey)
+        defaults.set(last.counter, forKey: Self.counterKey)
+    }
+}
+
 /// When each part of a to-do last changed. A sync merge takes every part from the copy that changed it last, so a title edited on one Mac
-/// and notes edited on another both survive; a part without a stamp counts as changed at the to-do's updatedAt (data from before the stamps).
+/// and notes edited on another both survive. Every part always carries a stamp: data from before the stamps gets its last change for all five.
 struct FieldStamps: Codable, Equatable {
-    var title: Date?
-    var notes: Date?
-    var done: Date?      // isDone and completedAt
-    var binding: Date?
-    var due: Date?       // due and dueSetAt
+    var title: Stamp
+    var notes: Stamp
+    var done: Stamp      // isDone and completedAt
+    var binding: Stamp
+    var due: Stamp       // due and dueSetAt
+
+    init(all stamp: Stamp) {
+        (title, notes, done, binding, due) = (stamp, stamp, stamp, stamp, stamp)
+    }
+
+    /// The last change to any part: decides against a deletion in a sync merge.
+    var latest: Stamp { max(title, notes, done, binding, due) }
 }
 
 struct TodoItem: Identifiable, Codable, Equatable {
@@ -152,19 +262,24 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var binding: ContextBinding? = nil
     var due: Due? = nil
     var dueSetAt: Date? = nil      // when the time was set: the time ring's first lap starts here (missing in old data, falls back to createdAt)
-    var updatedAt: Date = Date()   // the last change to any part: decides against a deletion in a sync merge, and stands in for missing part stamps
-    var changed = FieldStamps()    // when each part last changed: the sync merge is per part (see TodoItem.merged)
+    var changed: FieldStamps       // when each part last changed: the sync merge is per part (see merged)
 
-    init(title: String, notes: String = "", binding: ContextBinding? = nil, due: Due? = nil) {
+    /// The last change to any part.
+    var updatedAt: Stamp { changed.latest }
+
+    /// `stamp`: the new to-do's change stamp, from the store's clock; the wall time stands in where there is none.
+    init(title: String, notes: String = "", binding: ContextBinding? = nil, due: Due? = nil, stamp: Stamp? = nil) {
         self.title = title
         self.notes = notes
         self.binding = binding
         self.due = due
         dueSetAt = due == nil ? nil : Date()
-        updatedAt = createdAt
+        changed = FieldStamps(all: stamp ?? Stamp(date: createdAt))
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, notes, isDone, createdAt, completedAt, binding, due, dueSetAt, updatedAt, changed }
+    private enum CodingKeys: String, CodingKey { case id, title, notes, isDone, createdAt, completedAt, binding, due, dueSetAt, changed }
+    /// Written by the versions between the first stamps and the clock: the last change of the whole to-do.
+    private enum OldKeys: String, CodingKey { case updatedAt }
 
     /// A binding in an old format that cannot be read counts as unbound; the whole file must stay readable.
     /// Old data may hold multi-line content: the first line becomes the title, the rest the notes.
@@ -187,62 +302,46 @@ struct TodoItem: Identifiable, Codable, Equatable {
         binding = try? c.decodeIfPresent(ContextBinding.self, forKey: .binding)
         due = try? c.decodeIfPresent(Due.self, forKey: .due)
         dueSetAt = try? c.decodeIfPresent(Date.self, forKey: .dueSetAt)
-        // Old data has no change stamp: the latest moment it does record.
-        updatedAt = (try? c.decodeIfPresent(Date.self, forKey: .updatedAt)) ?? [createdAt, completedAt, dueSetAt].compactMap { $0 }.max()!
-        changed = (try? c.decodeIfPresent(FieldStamps.self, forKey: .changed)) ?? FieldStamps()
+        // Data without part stamps: every part counts as changed at the latest moment the to-do does record.
+        let whole = (try? decoder.container(keyedBy: OldKeys.self).decodeIfPresent(Stamp.self, forKey: .updatedAt))
+            ?? Stamp(date: [createdAt, completedAt, dueSetAt].compactMap { $0 }.max()!)
+        changed = (try? c.decodeIfPresent(FieldStamps.self, forKey: .changed)) ?? FieldStamps(all: whole)
     }
 
     /// Stamps the parts that differ from `before` with `now`: called after every edit, so each part carries its own change time.
-    /// A to-do is stamped all or nothing: the first edit of one from before the stamps first gives every part its last change as the stamp.
-    mutating func stamp(since before: TodoItem, at now: Date) {
-        if changed == FieldStamps() {
-            let u = before.updatedAt
-            changed = FieldStamps(title: u, notes: u, done: u, binding: u, due: u)
-        }
+    mutating func stamp(since before: TodoItem, at now: Stamp) {
         if title != before.title { changed.title = now }
         if notes != before.notes { changed.notes = now }
         if isDone != before.isDone || completedAt != before.completedAt { changed.done = now }
         if binding != before.binding { changed.binding = now }
         if due != before.due || dueSetAt != before.dueSetAt { changed.due = now }
-        updatedAt = now
     }
 
-    /// A part's change time: its stamp, or the to-do's last change for a copy without stamps (data from before them).
-    func time(_ stamp: Date?) -> Date { stamp ?? updatedAt }
-
     /// This copy and another copy of the same to-do into one: every part from the copy that changed it last (this one's on a tie).
-    /// Stamps are kept all or nothing, so the result equals one of the inputs when nothing crossed over and merging it again changes nothing.
+    /// The result is this copy when nothing crossed over, so merging the same copies again changes nothing.
     func merged(with other: TodoItem) -> TodoItem {
         var out = self
-        func pick(_ mine: Date?, _ theirs: Date?, _ take: (inout TodoItem) -> Void) -> Date? {
-            let (tm, tt) = (time(mine), other.time(theirs))
-            if tt > tm { take(&out) }
-            return mine == nil && theirs == nil ? nil : max(tm, tt)
-        }
-        out.changed.title = pick(changed.title, other.changed.title) { $0.title = other.title }
-        out.changed.notes = pick(changed.notes, other.changed.notes) { $0.notes = other.notes }
-        out.changed.done = pick(changed.done, other.changed.done) { $0.isDone = other.isDone; $0.completedAt = other.completedAt }
-        out.changed.binding = pick(changed.binding, other.changed.binding) { $0.binding = other.binding }
-        out.changed.due = pick(changed.due, other.changed.due) { $0.due = other.due; $0.dueSetAt = other.dueSetAt }
-        out.updatedAt = max(updatedAt, other.updatedAt)
+        if other.changed.title > changed.title { out.title = other.title; out.changed.title = other.changed.title }
+        if other.changed.notes > changed.notes { out.notes = other.notes; out.changed.notes = other.changed.notes }
+        if other.changed.done > changed.done { out.isDone = other.isDone; out.completedAt = other.completedAt; out.changed.done = other.changed.done }
+        if other.changed.binding > changed.binding { out.binding = other.binding; out.changed.binding = other.changed.binding }
+        if other.changed.due > changed.due { out.due = other.due; out.dueSetAt = other.dueSetAt; out.changed.due = other.changed.due }
         return out
     }
 }
 
-/// A deleted to-do's id and when it was deleted: kept for a while so that a sync merge with a copy that still has the to-do does not bring it back.
-struct Tombstone: Codable, Equatable {
-    var id: UUID
-    var at: Date
-}
-
-/// The to-do file: the to-dos in list order, the recent deletions and when the list was last reordered by hand
-/// (in a sync merge the order of the copy reordered more recently wins). A file from before sync is a bare array of to-dos and still loads.
+/// The to-do file: the to-dos in list order, the recent deletions (id → when, kept for 90 days so that a sync merge with a copy that still has
+/// the to-do does not bring it back) and when the list was last reordered by hand (in a sync merge the order of the copy reordered more recently wins).
+/// A file from before sync is a bare array of to-dos and still loads.
 struct TodoDocument: Codable, Equatable {
     var todos: [TodoItem] = []
-    var deleted: [Tombstone] = []
-    var orderedAt: Date? = nil
+    var deleted: [String: Stamp] = [:]
+    var orderedAt: Stamp? = nil
 
-    init(todos: [TodoItem] = [], deleted: [Tombstone] = [], orderedAt: Date? = nil) {
+    /// The latest stamp anywhere in the document: what a Mac's clock must get past when the document arrives from another Mac.
+    var latest: Stamp? { (todos.map(\.updatedAt) + deleted.values + [orderedAt].compactMap { $0 }).max() }
+
+    init(todos: [TodoItem] = [], deleted: [String: Stamp] = [:], orderedAt: Stamp? = nil) {
         self.todos = todos
         self.deleted = deleted
         self.orderedAt = orderedAt
@@ -257,15 +356,15 @@ struct TodoDocument: Codable, Equatable {
         }
         let c = try decoder.container(keyedBy: CodingKeys.self)
         todos = try c.decodeIfPresent([TodoItem].self, forKey: .todos) ?? []
-        deleted = (try? c.decodeIfPresent([Tombstone].self, forKey: .deleted)) ?? []
-        orderedAt = try? c.decodeIfPresent(Date.self, forKey: .orderedAt)
+        deleted = (try? c.decodeIfPresent([String: Stamp].self, forKey: .deleted)) ?? [:]
+        orderedAt = try? c.decodeIfPresent(Stamp.self, forKey: .orderedAt)
     }
 
     /// Dates as ISO 8601 (whole seconds), keys sorted: the same content gives the same bytes, which is how the sync file is told apart from our own last write.
     static let encoder: JSONEncoder = {
         let e = JSONEncoder()
         e.dateEncodingStrategy = .iso8601
-        e.outputFormatting = [.prettyPrinted, .sortedKeys]
+        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return e
     }()
     static let decoder: JSONDecoder = {

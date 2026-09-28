@@ -94,12 +94,17 @@ swift build             # compile check only: no bundle, icons or translations
   the same document is mirrored to `<folder>/todos.json` and every outside
   change merged back per part of a to-do (`TodoItem.merged`: title, notes,
   done, binding, due each from the copy that stamped it last in `changed`;
-  tombstones beat older `updatedAt`; order from the copy reordered last).
+  a tombstone beats a to-do none of whose parts changed after it; order from
+  the copy reordered last).
   Every edit must go through `mutate`, which stamps the parts that differ;
-  a new part needs a stamp in `FieldStamps`, `stamp` and `merged`. A folder
-  copy that cannot be
-  decoded is never overwritten. Test with two `TodoStore`s on temp data
-  directories against one folder; no app relaunch needed.
+  a new part needs a stamp in `FieldStamps` (`init(all:)`, `latest`), `stamp`
+  and `merged`. Stamps
+  are hybrid-logical-clock values (`Stamp`, from `TodoStore.clock`), never
+  `Date()`: a document that arrives moves the clock past its `latest` first,
+  so a change made after seeing another is always later. A folder
+  copy that cannot be read or decoded (an iCloud placeholder for a file not
+  downloaded yet included) is never overwritten. Test with two `TodoStore`s
+  on temp data directories against one folder; no app relaunch needed.
 * Log: `~/Library/Application Support/Hoopa/hoopa.log` (a pick logs the
   probed interfaces and the anchors kept; a jump logs which anchor won and
   how it was confirmed). Code comments, log lines and UI strings are English.

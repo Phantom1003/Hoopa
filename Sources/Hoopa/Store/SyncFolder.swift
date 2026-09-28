@@ -87,9 +87,17 @@ final class SyncFolder {
         }
     }
 
-    /// The file's bytes; nil when there is no file yet (the caller then writes its own copy). Throws when the file exists but cannot be read (offline, half-synced): leave it alone.
+    /// What iCloud Drive keeps in place of a file it has not downloaded to this Mac (evicted to free space, or new here): the file exists in iCloud, its bytes are not here.
+    var placeholderURL: URL { folder.appendingPathComponent("." + fileURL.lastPathComponent + ".icloud") }
+
+    /// The file's bytes; nil when there is no file yet (the caller then writes its own copy). Throws when the file exists but cannot be read (offline, half-synced,
+    /// or not downloaded from iCloud yet: the download is asked for, and the folder watch reports the file once it lands): leave it alone.
     func read() throws -> Data? {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            guard FileManager.default.fileExists(atPath: placeholderURL.path) else { return nil }
+            try? FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
+            throw Unavailable(description: "\(fileURL.lastPathComponent) is in iCloud Drive but not downloaded to this Mac yet")
+        }
         try? FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
         var data: Data?
         var inner: Error?

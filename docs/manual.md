@@ -45,11 +45,12 @@ click on the icon gives a menu with *Show/Hide Panel*, *Expand/Collapse* and
 ### Hiding at the screen edge
 
 Drop the panel against the left or right edge of the screen (or push it
-partly off the edge) and it docks there: it snaps flush with the edge, and a
-moment after the mouse leaves it slides off the screen, leaving a thin strip
-of glass at the edge. Rest the mouse on that strip and it slides back. It
-stays out while the mouse is on it, while a menu or a popover is open or a
-text field is being edited, and slides away again once you go elsewhere.
+partly off the edge) and it docks there: it snaps flush with the edge (at
+the right edge with square corners against it), and a moment after the
+mouse leaves it slides off the screen, leaving a thin strip of glass at the
+edge. Rest the mouse on that strip and it slides back. It stays out while
+the mouse is on it, while a menu or a popover is open or you have just typed
+into it, and slides away again once the mouse goes elsewhere.
 ⌃⌥T and the menu bar icon bring a tucked-away panel out; when the app shows
 the panel by itself (at launch, or after binding), a docked panel comes out
 for a glimpse and goes away unless the mouse comes. Collapsing and expanding
@@ -285,11 +286,18 @@ title edited here and notes edited there both survive; only the same part
 edited on both Macs keeps the later edit. A deletion beats every change made
 before it, and a change made after it brings the to-do back (deletions are
 remembered for 90 days). Manual order comes from the Mac that reordered
-last, with the to-dos it had not seen on top. The Macs' clocks decide what
-"later" means. The conflict copies iCloud Drive sets aside when
+last, with the to-dos it had not seen on top. "Later" is decided by a
+hybrid logical clock, not by the wall clocks alone: every change stamp a Mac
+makes comes after every stamp it has received, so an edit made after
+another Mac's edit arrived always wins over it, even if that Mac's clock
+runs ahead; wall time only orders edits made without knowledge of each
+other. The conflict copies iCloud Drive sets aside when
 both Macs wrote at the same moment are merged the same way. A folder copy
 that cannot be read is logged and left alone rather than overwritten; changes
-made meanwhile stay on this Mac until the copy reads again.
+made meanwhile stay on this Mac until the copy reads again. A copy iCloud
+Drive has not downloaded to this Mac yet (a new Mac, or a file evicted to
+free space) counts as unreadable: Hoopa asks for the download and waits for
+it.
 
 What travels: titles, notes, times, done marks, order and bindings. A
 binding is only as portable as its anchors: a browser tab URL or a Slack or
@@ -402,11 +410,14 @@ locally.
 ## Data and preferences
 
 * To-dos: `~/Library/Application Support/Hoopa/todos.json`, written shortly
-  after every change: an object with `todos` (in list order, each with an
-  `updatedAt` stamp and, under `changed`, when each part last changed),
-  `deleted` (the ids deleted in the last 90 days, so a
+  after every change: an object with `todos` (in list order, each with,
+  under `changed`, when its title, notes, done mark, binding and time last
+  changed), `deleted` (the ids deleted in the last 90 days and when, so a
   sync merge does not bring them back) and `orderedAt` (the last manual
-  reorder). The bare array older versions wrote still loads. A binding or
+  reorder). A change stamp reads `2026-09-27T05:45:12.345Z/3/8f3a2c`: the
+  time, a counter and the Mac that made it (see
+  [Sync between Macs](#sync-between-macs)). The bare array older versions
+  wrote still loads. A binding or
   time an older version cannot read is dropped for that to-do; the file
   itself still loads. With sync on, the same document is mirrored to
   `todos.json` in the sync folder.
@@ -415,8 +426,10 @@ locally.
 * Preferences (`local.phantom.hoopa`): the panel frame, the collapsed state,
   the screen edge the panel is docked at (`dock`, `left` or `right`),
   the sort setting, the interface language, whether updates are checked
-  automatically and the sync folder (`syncFolder`, a path; the iCloud Drive
-  folder's path stands for *iCloud Drive*).
+  automatically, the sync folder (`syncFolder`, a path; the iCloud Drive
+  folder's path stands for *iCloud Drive*) and the sync clock (`syncNode`,
+  this Mac's id in change stamps; `syncClock` and `syncCounter`, the last
+  stamp's time and counter).
 
 ## Diagnostics
 
