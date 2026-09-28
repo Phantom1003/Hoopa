@@ -3,7 +3,7 @@ import AppKit
 /// Docking at a screen edge. Dropping the panel against the left or right edge of a screen (or partly beyond it) docks it there: it sits flush with the edge,
 /// and slides off the screen a moment after the mouse leaves, leaving a thin strip of glass at the edge; the mouse on that strip slides it back.
 /// Dragging it away from the edge undocks it, and it is an ordinary floating panel again. The side is remembered across launches.
-/// Tucking waits while the mouse button is down, a menu or popover is open, or text is being edited, so nothing slides away under the user's hands.
+/// Tucking waits while the mouse button is down, a menu or popover is open, or a key was just typed into the panel, so nothing slides away under the user's hands.
 /// The window is only ever moved, never resized, here; collapse / expand keep working, and after a resize the panel is snapped to the edge again.
 final class EdgeDock {
     enum Side: String { case left, right }
@@ -16,14 +16,19 @@ final class EdgeDock {
     private static let revealAfter: TimeInterval = 0.2       // the mouse has to rest on the strip, brushing the edge does not reveal
     private static let tuckAfter: TimeInterval = 0.6         // after the mouse leaves
     private static let tuckAfterShow: TimeInterval = 1.5     // after the panel is shown by the app (launch, the hotkey, the end of a pick): a glimpse, then away unless the mouse comes
+    private static let typingHold: TimeInterval = 2          // after a keystroke into the panel: typing with the mouse parked elsewhere does not lose the panel mid-word
 
     private unowned let window: FloatingPanel
     private static let key = "dock"
     private(set) var side: Side? {
         didSet {
             if let side { UserDefaults.standard.set(side.rawValue, forKey: Self.key) } else { UserDefaults.standard.removeObject(forKey: Self.key) }
+            onSideChange?(side)
         }
     }
+    /// The side changed (the UI squares the plate's corners on the docked side).
+    var onSideChange: ((Side?) -> Void)?
+    private var lastKey = Date.distantPast
     /// Docked and slid off the screen (only the strip shows).
     private(set) var isTucked = false
     private var dragging = false
@@ -76,6 +81,9 @@ final class EdgeDock {
             scheduleTuck(after: Self.tuckAfter)
         }
     }
+
+    /// A key was typed into the panel.
+    func noteKey() { lastKey = Date() }
 
     /// The panel stopped being the key window (the user went to another app): away soon, unless the mouse is still on it.
     func didResignKey() {
@@ -186,9 +194,10 @@ final class EdgeDock {
         place(tucked: true, animated: true)
     }
 
-    /// The mouse button is down (a drag, or a click held), a menu or a popover is open, or a text field is being edited.
+    /// The mouse button is down (a drag, or a click held), a menu or a popover is open, or a key was just typed into the panel.
+    /// (Not "a text view is the first responder": the panel makes one so as soon as it becomes key, and the panel would never tuck while key.)
     private var isBusy: Bool {
         NSEvent.pressedMouseButtons != 0 || dragging || menuTracking > 0 || !(window.childWindows ?? []).isEmpty
-            || (window.isKeyWindow && window.firstResponder is NSTextView)
+            || Date().timeIntervalSince(lastKey) < Self.typingHold
     }
 }

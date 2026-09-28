@@ -22,6 +22,8 @@ final class AppCoordinator: ObservableObject {
     @Published var adding = false
     /// The size of the window's content area (reported by FloatingPanel): the expanded panel's plate fills it.
     @Published var panelSize = CGSize(width: 360, height: 480)
+    /// Docked at the right edge of the screen (see EdgeDock): the plate runs on past the window's right edge, so its right corners are square against the screen edge.
+    @Published var flushRight = false
     /// The binding and time "chosen but not yet created" in the composer.
     @Published var pendingBinding: ContextBinding?
     @Published var pendingDue: DueSpec?

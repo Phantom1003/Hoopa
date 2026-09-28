@@ -20,8 +20,9 @@ struct RootView: View {
 
     init(startCompact: Bool) { _parked = State(initialValue: startCompact) }
 
-    /// When the plate's rect animates: at the moment of expanding / collapsing, and when the collapsed slab's rect changes; while expanded, the window being dragged larger or smaller is followed directly, not animated.
-    private struct PlateKey: Equatable { var expanded: Bool; var front: FrontGeometry? }
+    /// When the plate's rect animates: at the moment of expanding / collapsing, when the collapsed slab's rect changes, and when the plate's right corners square off / round again (docking at the right edge);
+    /// while expanded, the window being dragged larger or smaller is followed directly, not animated.
+    private struct PlateKey: Equatable { var expanded: Bool; var front: FrontGeometry?; var flush: CGFloat }
 
     var body: some View {
         // The panel size comes from the window (coordinator.panelSize), not GeometryReader: that reports the root view's ideal size as 10×10 and the collapsed window would shrink to nothing.
@@ -29,16 +30,20 @@ struct RootView: View {
         let expanded = !coordinator.isCompact
         let panelRect = CGRect(x: Ear.width, y: 0, width: coordinator.panelSize.width - Ear.width, height: coordinator.panelSize.height)
         let plate = expanded ? FrontGeometry(rect: panelRect, radius: 18) : front
+        // Docked at the right edge of the screen: the plate runs one corner radius past the window's right edge (the window clips it), so the corners against the screen edge are square.
+        // Only the glass and the content's clip run on, not the layout: the collapsed window is sized to the content and must not grow by that much.
+        let flush: CGFloat = coordinator.flushRight ? plate.radius : 0
+        let plateKey = PlateKey(expanded: expanded, front: expanded ? nil : front, flush: flush)
         ZStack(alignment: .topLeading) {
                 // The plate: one rounded-rectangle piece of glass spanning the ear's column on the left (the rect starts at the window's left edge, the ear is cut out by the mask). Present in both shapes; collapsed, it is the slab itself.
                 // Position and size are set by PlateFrame, which reports the mid-animation rect to the window's mask every frame.
                 Color.clear
                     .glass(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
                     .modifier(PlateFrame(rect: CGRect(x: plate.rect.minX - Ear.width, y: plate.rect.minY,
-                                                      width: plate.rect.width + Ear.width, height: plate.rect.height),
+                                                      width: plate.rect.width + Ear.width + flush, height: plate.rect.height),
+                                         overflow: flush,
                                          report: { coordinator.plateFrame = $0 }))
-                    .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
-                               value: PlateKey(expanded: expanded, front: expanded ? nil : front))
+                    .animation(expanded ? Motion.panelGrow : Motion.panelShrink, value: plateKey)
                     .allowsHitTesting(false)
                 if coordinator.isCompact {
                     CompactView()
@@ -52,11 +57,11 @@ struct RootView: View {
                 // clipShape also applies to the AppKit-hosted list / text fields (clipped to the rect).
                 ExpandedView()
                     .frame(width: panelRect.width, height: panelRect.height, alignment: .topLeading)
-                    .frame(width: plate.rect.width, height: plate.rect.height, alignment: .topLeading)
+                    .frame(width: plate.rect.width + flush, height: plate.rect.height, alignment: .topLeading)
                     .clipShape(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
+                    .frame(width: plate.rect.width, height: plate.rect.height, alignment: .topLeading)   // the clip's overflow past the right edge takes no layout room
                     .offset(x: plate.rect.minX, y: plate.rect.minY)
-                    .animation(expanded ? Motion.panelGrow : Motion.panelShrink,
-                               value: PlateKey(expanded: expanded, front: expanded ? nil : front))
+                    .animation(expanded ? Motion.panelGrow : Motion.panelShrink, value: plateKey)
                     .offset(x: parked ? -4000 : 0)
                     .animation(nil, value: parked)        // moving in and out is not animated
                     .opacity(expanded ? 1 : 0)
@@ -119,17 +124,20 @@ private struct EarProbe: ViewModifier, Animatable {
 }
 
 /// The plate's position and size (root view coordinates), laid out every animation frame at the interpolated rect and reported: the window's mask rounds the corners to this rect, flush with the plate.
+/// The last overflow points of the width hang past the layout frame on the right (docked at the right edge, see RootView): the glass is that much wider than the room it takes.
 private struct PlateFrame: ViewModifier, Animatable {
     var rect: CGRect
+    var overflow: CGFloat
     var report: (CGRect) -> Void
-    var animatableData: CGRect.AnimatableData {
-        get { rect.animatableData }
-        set { rect.animatableData = newValue }
+    var animatableData: AnimatablePair<CGRect.AnimatableData, CGFloat> {
+        get { AnimatablePair(rect.animatableData, overflow) }
+        set { rect.animatableData = newValue.first; overflow = newValue.second }
     }
     func body(content: Content) -> some View {
         report(rect)
         return content
             .frame(width: rect.width, height: rect.height)
+            .frame(width: rect.width - overflow, height: rect.height, alignment: .leading)
             .offset(x: rect.minX, y: rect.minY)
     }
 }

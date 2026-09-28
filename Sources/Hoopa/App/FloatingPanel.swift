@@ -77,6 +77,7 @@ final class FloatingPanel: NSPanel {
         if [.leftMouseDown, .rightMouseDown, .otherMouseDown].contains(event.type), !isKeyWindow {
             makeKey()
         }
+        if event.type == .keyDown { dock.noteKey() }
         super.sendEvent(event)
     }
 

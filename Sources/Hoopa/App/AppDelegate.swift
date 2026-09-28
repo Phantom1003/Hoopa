@@ -38,6 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         coordinator.onMaskChange = { [weak self] plate, ear in self?.panel.setMask(plate: plate, ear: ear) }
         panel.setMask(plate: coordinator.plateFrame, ear: coordinator.earExtent)
         panel.onResize = { [weak self] size in self?.coordinator.panelSize = size }
+        panel.dock.onSideChange = { [weak self] side in self?.coordinator.flushRight = side == .right }
+        coordinator.flushRight = panel.dock.side == .right
         coordinator.panelSize = panel.frame.size
         if startCompact { panel.setCompact(true, animated: false) }
         coordinator.onCompactChanged = { [weak self] compact in
