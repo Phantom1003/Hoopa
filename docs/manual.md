@@ -42,6 +42,21 @@ Show or hide it with **⌃⌥T** or a left click on the menu bar icon. A right
 click on the icon gives a menu with *Show/Hide Panel*, *Expand/Collapse* and
 *Quit*.
 
+### Hiding at the screen edge
+
+Drop the panel against the left or right edge of the screen (or push it
+partly off the edge) and it docks there: it snaps flush with the edge, and a
+moment after the mouse leaves it slides off the screen, leaving a thin strip
+of glass at the edge. Rest the mouse on that strip and it slides back. It
+stays out while the mouse is on it, while a menu or a popover is open or a
+text field is being edited, and slides away again once you go elsewhere.
+⌃⌥T and the menu bar icon bring a tucked-away panel out; when the app shows
+the panel by itself (at launch, or after binding), a docked panel comes out
+for a glimpse and goes away unless the mouse comes. Collapsing and expanding
+work as usual and the panel is snapped to the edge again afterwards. Drag it
+away from the edge to undock it. The edge is remembered across launches. An
+edge that another display continues past is not a docking edge.
+
 The panel has no header: the list starts at the top. The item count, **+**
 (the composer), **⇅** (sort by time), the trash button and the **⋯** menu
 float in a glass capsule at the bottom right, and the list leaves room under
@@ -398,6 +413,7 @@ locally.
 * Log: `~/Library/Application Support/Hoopa/hoopa.log`, started over once it
   passes 2 MB.
 * Preferences (`local.phantom.hoopa`): the panel frame, the collapsed state,
+  the screen edge the panel is docked at (`dock`, `left` or `right`),
   the sort setting, the interface language, whether updates are checked
   automatically and the sync folder (`syncFolder`, a path; the iCloud Drive
   folder's path stands for *iCloud Drive*).

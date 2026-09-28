@@ -108,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     @objc private func statusItemClicked() {
         if let event = NSApp.currentEvent, event.type == .rightMouseUp {
             let menu = NSMenu()
-            menu.addItem(withTitle: panel.isVisible ? String(localized: "Hide Panel") : String(localized: "Show Panel"), action: #selector(togglePanel), keyEquivalent: "")
+            menu.addItem(withTitle: panel.isVisible && !panel.isTucked ? String(localized: "Hide Panel") : String(localized: "Show Panel"), action: #selector(togglePanel), keyEquivalent: "")
             menu.addItem(withTitle: coordinator.isCompact ? String(localized: "Expand") : String(localized: "Collapse"), action: #selector(toggleCompact), keyEquivalent: "")
             // One more item while a newer version exists: the same as the one under ⬇ in the panel; click to download, swap and relaunch.
             if let r = updater.available {
@@ -126,8 +126,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
+    /// A panel tucked away at a screen edge counts as hidden: the hotkey brings it out rather than ordering it out.
     @objc func togglePanel() {
-        if panel.isVisible {
+        if panel.isVisible && !panel.isTucked {
             panel.orderOut(nil)
         } else {
             panel.show()

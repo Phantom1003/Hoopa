@@ -17,6 +17,8 @@ final class FloatingPanel: NSPanel {
     private let hosting: FirstMouseHostingView<AnyView>
     /// The window size changed (including the growth at the moment of expanding); report it to the UI layer.
     var onResize: ((CGSize) -> Void)?
+    /// Docking at a screen edge (dropped against the left or right edge, the panel slides off the screen when the mouse leaves), see EdgeDock.
+    private(set) var dock: EdgeDock!
 
     init(contentView: FirstMouseHostingView<AnyView>) {
         hosting = contentView
@@ -46,6 +48,8 @@ final class FloatingPanel: NSPanel {
             guard let self else { return }
             self.onResize?(self.frame.size)
         }
+        dock = EdgeDock(window: self)
+        hosting.onHover = { [weak self] inside in self?.dock.hover(inside) }
     }
 
     /// Transparent background. Changing styleMask makes AppKit rebuild the window layer, so both have to be applied again.
@@ -76,9 +80,18 @@ final class FloatingPanel: NSPanel {
         super.sendEvent(event)
     }
 
+    /// Docked and slid off the screen: only a strip of the plate shows at the edge.
+    var isTucked: Bool { dock.isTucked }
+
     func show() {
+        dock.willShow()
         makeKeyAndOrderFront(nil)
         orderFrontRegardless()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        dock.didResignKey()
     }
 
     func setAlwaysOnTop(_ on: Bool) {
@@ -184,6 +197,26 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { true }
+
+    /// The mouse entered / left the window (its glass: the window server does not route the mouse over transparent pixels). Independent of SwiftUI's hover, for the window's docking.
+    var onHover: ((Bool) -> Void)?
+    private var hoverArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if event.trackingArea === hoverArea { onHover?(true) } else { super.mouseEntered(with: event) }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if event.trackingArea === hoverArea { onHover?(false) } else { super.mouseExited(with: event) }
+    }
 
     /// SwiftUI's clipShape does not reach AppKit subviews (the NSScrollView under the list is square and shows white corners outside the rounding),
     /// so the mask is applied on the layer, and the scroll view's own white background is switched off.
