@@ -47,8 +47,9 @@ struct CompactView: View {
         }
         .frame(width: width, alignment: .leading)
         .padding(.horizontal, inset).padding(.vertical, insetV)
-        .frame(minHeight: Self.minHeight, alignment: .top)
-        .contentShape(Rectangle())        // the whole slab drags the window, the room under a short list included
+        // A list shorter than the slab (one row, or only "+ Add") sits in the middle, level with the ear, not at the top over a blank strip.
+        .frame(minHeight: Self.minHeight, alignment: .center)
+        .contentShape(Rectangle())        // the whole slab drags the window, the room around a short list included
         .font(.system(size: 12, weight: .medium))
         .foregroundStyle(Style.text)
         .background(GeometryReader { g in
