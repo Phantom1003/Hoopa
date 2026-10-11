@@ -1,12 +1,16 @@
 import AppKit
 
-/// Docking at a screen edge. Dropping the panel against the left or right edge of a screen (or partly beyond it) docks it there: it sits flush with the edge,
+/// Docking at a screen edge. Dropping the panel against the left, right or top edge of a screen (or partly beyond it) docks it there: it sits flush with the edge,
 /// and slides off the screen a moment after the mouse leaves, leaving a thin strip of glass at the edge; the mouse on that strip slides it back.
+/// Each edge is its own side: at the left and right edges the panel slides sideways, at the top it slides up. The top edge is the bottom of the menu bar: docked, the panel hangs from it;
+/// tucked, it slides up behind it until only the strip is left under the menu bar, where the mouse can reach it (behind the menu bar it could not), and whatever is behind the menu bar
+/// (transparent on macOS 26, it would show the glass through) is cut off by the window mask.
+/// Docked at the left edge the UI puts the ear on the right side of the panel, so the window's left edge is the plate's and the strip left on screen is the plate's, not the ear's column.
 /// Dragging it away from the edge undocks it, and it is an ordinary floating panel again. The side is remembered across launches.
 /// Tucking waits while the mouse button is down, a menu or popover is open, or a key was just typed into the panel, so nothing slides away under the user's hands.
 /// The window is only ever moved, never resized, here; collapse / expand keep working, and after a resize the panel is snapped to the edge again.
 final class EdgeDock {
-    enum Side: String { case left, right }
+    enum Side: String { case left, right, top }
 
     /// How much of the plate stays on screen while tucked.
     static let peek: CGFloat = 8
@@ -31,8 +35,10 @@ final class EdgeDock {
     private var lastKey = Date.distantPast
     /// Docked and slid off the screen (only the strip shows).
     private(set) var isTucked = false
-    private var dragging = false
-    private var placing = false
+    /// The window is being dragged by the mouse.
+    private(set) var dragging = false
+    /// The window is being moved by the dock itself (a slide, or a snap): not a drag, and the frame may leave the screen (see FloatingPanel.constrainFrameRect).
+    private(set) var placing = false
     /// A resize came while a slide was running: snap again once it is over.
     private var snapAfterPlacing = false
     private var menuTracking = 0
@@ -92,8 +98,10 @@ final class EdgeDock {
     }
 
     /// Every move of the window. Only moves with the mouse button down are drags; the drag ends when the button comes up, and the position decides.
+    /// A move of the dock's own (a slide at the top edge) keeps the mask's cut in step with the frame.
     private func noteMove() {
-        guard NSEvent.pressedMouseButtons != 0, !placing else { return }
+        if placing { clipToMenuBar(); return }
+        guard NSEvent.pressedMouseButtons != 0 else { return }
         tuckWork?.cancel()
         revealWork?.cancel()
         guard !dragging else { return }
@@ -120,38 +128,52 @@ final class EdgeDock {
 
     // MARK: Docking
 
-    /// The window was dropped after a drag (also called by the test harness): the position decides.
+    /// The window was dropped after a drag (also called by the test harness): the position decides. Within the snap distance of several edges (dropped into a corner), the edge pushed further wins.
     func dragEnded() {
         guard let screen = window.screen ?? NSScreen.main else { return }
         let f = window.frame, s = screen.frame
-        var next: Side?
-        if f.minX <= s.minX + Self.snap, edgeIsFree(.left, of: screen, at: f.midY) { next = .left }
-        else if f.maxX >= s.maxX - Self.snap, edgeIsFree(.right, of: screen, at: f.midY) { next = .right }
+        let depth: [(Side, CGFloat)] = [
+            (.left, s.minX + Self.snap - f.minX),
+            (.right, f.maxX - (s.maxX - Self.snap)),
+            (.top, f.maxY - (Self.top(of: screen) - Self.snap)),   // a drag stops at the menu bar (the window server keeps dragged windows below it), so that is the line
+        ]
+        let next = depth.filter { $0.1 >= 0 && edgeIsFree($0.0, of: screen, window: f) }.max { $0.1 < $1.1 }?.0
         if next != side {
             side = next
             isTucked = false
             Log.write(next.map { "Dock: \($0.rawValue) edge of screen \(NSStringFromRect(s))" } ?? "Undock")
         }
-        guard side != nil else { return }
+        guard side != nil else { clipToMenuBar(); return }
         place(tucked: false, animated: true)
         scheduleTuck(after: Self.tuckAfter)
     }
 
+    /// The top docking edge: the bottom of the menu bar (the screen's top edge where the menu bar is hidden, in a full-screen space). The tucked strip sits under it, and the mask cuts above it.
+    private static func top(of screen: NSScreen) -> CGFloat { screen.visibleFrame.maxY }
+
     /// Nothing beyond that edge: another display there would show the tucked panel instead of hiding it.
-    private func edgeIsFree(_ side: Side, of screen: NSScreen, at y: CGFloat) -> Bool {
-        let beyond = NSPoint(x: side == .left ? screen.frame.minX - 1 : screen.frame.maxX + 1, y: y)
+    private func edgeIsFree(_ side: Side, of screen: NSScreen, window f: NSRect) -> Bool {
+        let s = screen.frame
+        let beyond: NSPoint
+        switch side {
+        case .left: beyond = NSPoint(x: s.minX - 1, y: f.midY)
+        case .right: beyond = NSPoint(x: s.maxX + 1, y: f.midY)
+        case .top: beyond = NSPoint(x: f.midX, y: s.maxY + 1)
+        }
         return !NSScreen.screens.contains { $0 != screen && $0.frame.contains(beyond) }
     }
 
-    /// The window's frame docked at the side, flush with the edge, or tucked with only the strip on screen. The window's left column is the ear's (transparent, the ear only on hover),
-    /// so at the left edge the window's own edge is flush and the plate stands the ear's width in; at the right edge the plate is flush.
+    /// The window's frame docked at the side, flush with the edge, or tucked with only the strip on screen. The ear's column (transparent, the ear only on hover) is on the window's left,
+    /// or on its right when docked at the left edge, so the window's edge against the screen edge is always the plate's, and the column at the other end stays off screen along with the rest.
+    /// At the top the plate's top is the window's top: flush under the menu bar, or slid up behind it with the strip at the bottom.
     private func dockedFrame(tucked: Bool) -> NSRect? {
         guard let side, let screen = window.screen ?? NSScreen.main else { return nil }
         var f = window.frame
         let s = screen.frame
         switch side {
-        case .left: f.origin.x = tucked ? s.minX + Self.peek - f.width : s.minX
+        case .left: f.origin.x = tucked ? s.minX + Ear.width + Self.peek - f.width : s.minX
         case .right: f.origin.x = tucked ? s.maxX - Ear.width - Self.peek : s.maxX - f.width
+        case .top: f.origin.y = tucked ? Self.top(of: screen) - Self.peek : Self.top(of: screen) - f.height
         }
         return f
     }
@@ -159,7 +181,7 @@ final class EdgeDock {
     private func place(tucked: Bool, animated: Bool) {
         guard let f = dockedFrame(tucked: tucked) else { return }
         isTucked = tucked
-        guard f != window.frame else { return }
+        guard f != window.frame else { clipToMenuBar(); return }
         placing = true
         if animated {
             NSAnimationContext.runAnimationGroup({ ctx in
@@ -169,12 +191,23 @@ final class EdgeDock {
             }, completionHandler: { [weak self] in
                 guard let self else { return }
                 self.placing = false
+                self.clipToMenuBar()
                 if self.snapAfterPlacing { self.snapAfterPlacing = false; self.place(tucked: self.isTucked, animated: true) }
             })
         } else {
             window.setFrame(f, display: true)
             placing = false
+            clipToMenuBar()
         }
+    }
+
+    /// Docked at the top, whatever of the window is above the menu bar's bottom edge (tucked, or on the way) is cut off by the mask, so nothing shows through the transparent menu bar. Nothing is cut at the other sides.
+    private func clipToMenuBar() {
+        var hidden: CGFloat = 0
+        if side == .top, let screen = window.screen ?? NSScreen.main {
+            hidden = max(window.frame.maxY - Self.top(of: screen), 0)
+        }
+        window.setHiddenTop(hidden)
     }
 
     private func scheduleTuck(after delay: TimeInterval) {

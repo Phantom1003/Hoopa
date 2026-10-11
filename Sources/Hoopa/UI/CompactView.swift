@@ -57,8 +57,8 @@ struct CompactView: View {
             Color.clear.preference(key: FrontGeometryKey.self,
                                    value: FrontGeometry(rect: g.frame(in: .named("root")), radius: Self.radius))
         })
-        // Leave the ear's column on the left (the slab's glass, ear included, is drawn by RootView's plate).
-        .padding(.leading, Ear.width)
+        // Leave the ear's column on the left, or on the right when docked at the left edge (the slab's glass, ear included, is drawn by RootView's plate).
+        .padding(coordinator.dockSide == .left ? .trailing : .leading, Ear.width)
         .windowDraggable()
         .contextMenu {
             Button("Expand") { coordinator.isCompact = false }

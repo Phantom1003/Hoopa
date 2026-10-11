@@ -35,11 +35,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let hosting = FirstMouseHostingView(rootView: AnyView(root))
         panel = FloatingPanel(contentView: hosting)
         // The window's layer mask follows the plate and the ear; the root view has already been evaluated once, so hand over the geometry it reported.
-        coordinator.onMaskChange = { [weak self] plate, ear in self?.panel.setMask(plate: plate, ear: ear) }
-        panel.setMask(plate: coordinator.plateFrame, ear: coordinator.earExtent)
+        coordinator.onMaskChange = { [weak self] mask in self?.panel.setMask(mask) }
+        panel.setMask(coordinator.mask)
         panel.onResize = { [weak self] size in self?.coordinator.panelSize = size }
-        panel.dock.onSideChange = { [weak self] side in self?.coordinator.flushRight = side == .right }
-        coordinator.flushRight = panel.dock.side == .right
+        panel.dock.onSideChange = { [weak self] side in self?.coordinator.dockSide = side }
+        coordinator.dockSide = panel.dock.side
         coordinator.panelSize = panel.frame.size
         if startCompact { panel.setCompact(true, animated: false) }
         coordinator.onCompactChanged = { [weak self] compact in

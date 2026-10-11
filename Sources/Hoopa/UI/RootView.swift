@@ -8,6 +8,8 @@ import SwiftUI
 /// The plate's left corners are cut by the mask too (the glass itself extends under the ear's column), so the plate's rect every frame and how far the ear is out are reported to the window from here,
 /// and the mask follows the plate frame by frame: if the mask clipped to the window size, the plate's bottom left corner would land on the mask's straight edge while it shrinks / grows and turn square.
 /// The ear is out only while the mouse is on the window and slides back to the edge when it leaves. The window grows first and shrinks once the animation is over (see FirstMouseHostingView.fitWindow); the content stays glued to the top left.
+/// Docked at the left edge of the screen the ear's column is on the right instead (the ear would be squeezed between the screen edge and the slab): the plate starts at the window's left edge,
+/// and the ear sits outside the slab's / panel's right edge, so it moves with that edge when the panel collapses or expands.
 struct RootView: View {
     @EnvironmentObject var coordinator: AppCoordinator
     /// The collapsed slab's rect (root view coordinates) and corner radius, reported by CompactView: the plate grows out of here / shrinks back here.
@@ -20,29 +22,31 @@ struct RootView: View {
 
     init(startCompact: Bool) { _parked = State(initialValue: startCompact) }
 
-    /// When the plate's rect animates: at the moment of expanding / collapsing, when the collapsed slab's rect changes, and when the plate's right corners square off / round again (docking at the right edge);
+    /// When the plate's rect animates: at the moment of expanding / collapsing, when the collapsed slab's rect changes, and when the plate's corners square off / round again (docking at an edge);
     /// while expanded, the window being dragged larger or smaller is followed directly, not animated.
-    private struct PlateKey: Equatable { var expanded: Bool; var front: FrontGeometry?; var flush: CGFloat }
+    private struct PlateKey: Equatable { var expanded: Bool; var front: FrontGeometry?; var flush: EdgeInsets }
 
     var body: some View {
         // The panel size comes from the window (coordinator.panelSize), not GeometryReader: that reports the root view's ideal size as 10×10 and the collapsed window would shrink to nothing.
-        // Leave the ear's width on the left of the window: the panel and the collapsed slab both start right of the ear.
+        // Leave the ear's width on the left of the window (on the right when docked at the left edge): the panel and the collapsed slab both start beside the ear's column.
         let expanded = !coordinator.isCompact
-        let panelRect = CGRect(x: Ear.width, y: 0, width: coordinator.panelSize.width - Ear.width, height: coordinator.panelSize.height)
+        let earRight = coordinator.dockSide == .left
+        let panelRect = CGRect(x: earRight ? 0 : Ear.width, y: 0, width: coordinator.panelSize.width - Ear.width, height: coordinator.panelSize.height)
         let plate = expanded ? FrontGeometry(rect: panelRect, radius: 18) : front
-        // Docked at the right edge of the screen: the plate runs one corner radius past the window's right edge (the window clips it), so the corners against the screen edge are square.
+        // Docked at a screen edge: the plate runs one corner radius past the window's edge on that side (the window clips it), so the corners against the screen edge are square.
         // Only the glass and the content's clip run on, not the layout: the collapsed window is sized to the content and must not grow by that much.
-        let flush: CGFloat = coordinator.flushRight ? plate.radius : 0
+        let flush = EdgeInsets(top: coordinator.dockSide == .top ? plate.radius : 0, leading: earRight ? plate.radius : 0,
+                               bottom: 0, trailing: coordinator.dockSide == .right ? plate.radius : 0)
         let plateKey = PlateKey(expanded: expanded, front: expanded ? nil : front, flush: flush)
         ZStack(alignment: .topLeading) {
-                // The plate: one rounded-rectangle piece of glass spanning the ear's column on the left (the rect starts at the window's left edge, the ear is cut out by the mask). Present in both shapes; collapsed, it is the slab itself.
+                // The plate: one rounded-rectangle piece of glass spanning the ear's column (the rect runs from the window's left edge to its right edge, the ear is cut out by the mask). Present in both shapes; collapsed, it is the slab itself.
                 // Position and size are set by PlateFrame, which reports the mid-animation rect to the window's mask every frame.
                 Color.clear
                     .glass(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
-                    .modifier(PlateFrame(rect: CGRect(x: plate.rect.minX - Ear.width, y: plate.rect.minY,
-                                                      width: plate.rect.width + Ear.width + flush, height: plate.rect.height),
+                    .modifier(PlateFrame(rect: CGRect(x: plate.rect.minX - (earRight ? 0 : Ear.width) - flush.leading, y: plate.rect.minY - flush.top,
+                                                      width: plate.rect.width + Ear.width + flush.leading + flush.trailing, height: plate.rect.height + flush.top),
                                          overflow: flush,
-                                         report: { coordinator.plateFrame = $0 }))
+                                         report: { coordinator.mask.plate = $0 }))
                     .animation(expanded ? Motion.panelGrow : Motion.panelShrink, value: plateKey)
                     // The plate is what the window catches the mouse with. A transparent window only receives clicks where SwiftUI hit-tests something
                     // (the window's event region is built from the hit-testable views, not from the pixels drawn: glass alone counts for nothing),
@@ -63,9 +67,11 @@ struct RootView: View {
                 // clipShape also applies to the AppKit-hosted list / text fields (clipped to the rect).
                 ExpandedView()
                     .frame(width: panelRect.width, height: panelRect.height, alignment: .topLeading)
-                    .frame(width: plate.rect.width + flush, height: plate.rect.height, alignment: .topLeading)
+                    .padding(.top, flush.top).padding(.leading, flush.leading)   // the clip runs on past the plate on the docked side: the content stays at the plate's corner
+                    .frame(width: plate.rect.width + flush.leading + flush.trailing, height: plate.rect.height + flush.top, alignment: .topLeading)
                     .clipShape(RoundedRectangle(cornerRadius: plate.radius, style: .continuous))
-                    .frame(width: plate.rect.width, height: plate.rect.height, alignment: .topLeading)   // the clip's overflow past the right edge takes no layout room
+                    .frame(width: plate.rect.width, height: plate.rect.height,     // the clip's overflow past the docked edge takes no layout room
+                           alignment: Alignment(horizontal: flush.leading > 0 ? .trailing : .leading, vertical: .bottom))
                     .offset(x: plate.rect.minX, y: plate.rect.minY)
                     .animation(expanded ? Motion.panelGrow : Motion.panelShrink, value: plateKey)
                     .offset(x: parked ? -4000 : 0)
@@ -74,13 +80,14 @@ struct RootView: View {
                     .allowsHitTesting(expanded)
                     .animation(expanded ? Motion.panelContentIn : Motion.panelContentOut, value: expanded)
                     .zIndex(2)
-                // The arrow on the ear: at the same spot in both shapes.
+                // The arrow on the ear: at the same spot in both shapes (on the right it follows the slab's / panel's right edge, along with the plate).
                 EarToggle(shown: earShown)
-                    .offset(y: Ear.top)
+                    .offset(x: earRight ? plate.rect.maxX : 0, y: Ear.top)
+                    .animation(expanded ? Motion.panelGrow : Motion.panelShrink, value: plateKey)
                     .zIndex(3)
                 // How far the ear is out (the value on every animation frame) is reported to the window's mask: an invisible probe that takes no events, its width is how far the ear is out.
                 Color.clear
-                    .modifier(EarProbe(extent: earShown ? Ear.width + Ear.radius : 0.5, report: { coordinator.earExtent = $0 }))
+                    .modifier(EarProbe(extent: earShown ? Ear.width + Ear.radius : 0.5, report: { coordinator.mask.ear = $0 }))
                     .animation(Motion.ear, value: earShown)
                     .allowsHitTesting(false)
         }
@@ -130,21 +137,22 @@ private struct EarProbe: ViewModifier, Animatable {
 }
 
 /// The plate's position and size (root view coordinates), laid out every animation frame at the interpolated rect and reported: the window's mask rounds the corners to this rect, flush with the plate.
-/// The last overflow points of the width hang past the layout frame on the right (docked at the right edge, see RootView): the glass is that much wider than the room it takes.
+/// The overflow hangs past the layout frame on the docked side: left, right or above (see RootView): the glass is that much larger than the room it takes.
 private struct PlateFrame: ViewModifier, Animatable {
     var rect: CGRect
-    var overflow: CGFloat
+    var overflow: EdgeInsets
     var report: (CGRect) -> Void
-    var animatableData: AnimatablePair<CGRect.AnimatableData, CGFloat> {
-        get { AnimatablePair(rect.animatableData, overflow) }
-        set { rect.animatableData = newValue.first; overflow = newValue.second }
+    var animatableData: AnimatablePair<CGRect.AnimatableData, EdgeInsets.AnimatableData> {
+        get { AnimatablePair(rect.animatableData, overflow.animatableData) }
+        set { rect.animatableData = newValue.first; overflow.animatableData = newValue.second }
     }
     func body(content: Content) -> some View {
         report(rect)
         return content
             .frame(width: rect.width, height: rect.height)
-            .frame(width: rect.width - overflow, height: rect.height, alignment: .leading)
-            .offset(x: rect.minX, y: rect.minY)
+            .frame(width: rect.width - overflow.leading - overflow.trailing, height: rect.height - overflow.top,
+                   alignment: Alignment(horizontal: overflow.leading > 0 ? .trailing : .leading, vertical: .bottom))
+            .offset(x: rect.minX + overflow.leading, y: rect.minY + overflow.top)
     }
 }
 
@@ -530,8 +538,8 @@ struct DayGroup: Identifiable {
     }
 }
 
-/// Where the ear sits: the window leaves this much room on the left, the panel / slab starts right of it. Below the window's corner radius (18): the plate glass in that column is rounded down to 18,
-/// straight below that, so the left edge of the ear the mask cuts out is the glass's own edge.
+/// Where the ear sits: the window leaves this much room on the left (on the right when docked at the left edge), the panel / slab starts beside it. Below the window's corner radius (18): the plate glass in that column is rounded down to 18,
+/// straight below that, so the outer edge of the ear the mask cuts out is the glass's own edge.
 enum Ear {
     static let width: CGFloat = 18
     static let top: CGFloat = 18

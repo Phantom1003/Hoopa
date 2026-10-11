@@ -76,7 +76,8 @@ swift build             # compile check only: no bundle, icons or translations
   `layoutPriority` where the languages differ in length.
 * The collapse/expand toggle is the ear at the left edge and sits at the same
   spot in both states, so that nothing else ever lands under a just-clicked
-  toggle.
+  toggle. Docked at the left screen edge the ear is outside the right edge
+  instead (it moves with that edge when the width changes, the one exception).
 * The collapsed list stays narrow (one row per to-do, 220 pt wide). Prefer
   stable, one-click layouts over hover-driven morphs.
 * Liquid Glass (`.glassEffect`, `.buttonStyle(.glass)`) is used behind

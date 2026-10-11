@@ -44,16 +44,23 @@ click on the icon gives a menu with *Show/Hide Panel*, *Expand/Collapse* and
 
 ### Hiding at the screen edge
 
-Drop the panel against the left or right edge of the screen (or push it
-partly off the edge) and it docks there: it snaps flush with the edge (at
-the right edge with square corners against it), and a moment after the
-mouse leaves it slides off the screen, leaving a thin strip of glass at the
-edge. Rest the mouse on that strip and it slides back. It stays out while
-the mouse is on it, while a menu or a popover is open or you have just typed
-into it, and slides away again once the mouse goes elsewhere.
-⌃⌥T and the menu bar icon bring a tucked-away panel out; when the app shows
-the panel by itself (at launch, or after binding), a docked panel comes out
-for a glimpse and goes away unless the mouse comes. Collapsing and expanding
+Drop the panel against the left, right or top edge of the screen (or push it
+partly off the edge) and it docks there: it snaps flush with the edge, with
+square corners against it, and a moment after the mouse leaves it slides off
+the screen that way, leaving a thin strip of glass at the edge. Each edge is
+its own: at the left and right edges the panel slides sideways, at the top
+it slides up; dropped into a corner, the edge it was pushed further against
+wins. The top edge is the bottom of the menu bar: the panel hangs from it,
+nothing of the panel ever shows through the (transparent) menu bar, and
+tucked away the panel leaves its strip just under the menu bar, where the
+mouse can reach it. At the left edge the ear moves to the panel's right
+side, so the panel itself is flush with the screen edge, square corners
+included. Rest the mouse on that strip and it slides back. It stays out
+while the mouse is on it, while a menu or a popover is open or you have just
+typed into it, and slides away again once the mouse goes elsewhere. ⌃⌥T and
+the menu bar icon bring a tucked-away panel out; when the app shows the
+panel by itself (at launch, or after binding), a docked panel comes out for
+a glimpse and goes away unless the mouse comes. Collapsing and expanding
 work as usual and the panel is snapped to the edge again afterwards. Drag it
 away from the edge to undock it. The edge is remembered across launches. An
 edge that another display continues past is not a docking edge.
@@ -103,7 +110,9 @@ before it, the lower half after.
 
 The ear is a small tab outside the panel's left edge. It slides out while the
 mouse is over the panel and shows ⌃ when the panel is expanded and ⌄ when it
-is collapsed, in exactly the same spot, so repeated clicks only toggle.
+is collapsed, in exactly the same spot, so repeated clicks only toggle. With
+the panel docked at the left edge of the screen (see [Hiding at the screen
+edge](#hiding-at-the-screen-edge)) the ear is outside the right edge instead.
 
 Collapsed, the panel is a narrow glass slab with one row per to-do, in the
 same order as the panel (your order, or by time when ⇅ is on), at most six
@@ -229,8 +238,9 @@ The ◔ button and the *Timer / Date…* menu item open the time picker:
 
 The time chip shows the countdown in its two largest units (`1d 03h`,
 `20h 00m`, `4m 10s`) followed by the absolute time (`14:30`, or `Tomorrow
-14:30`). It turns orange in the last ten minutes, red in the last minute, and
-red with `Overdue` once the time has passed.
+14:30`). The countdown is in the colour of the to-do's time ring (blue beyond
+a week, then cyan, mint, green, yellow, orange, red in the last minute), and
+red with `Overdue` once the time has passed; the absolute time stays grey.
 
 At the moment itself Hoopa posts a system notification with the to-do's title
 ("Timer finished" or "Time's up", plus "Click to go back to …" when the
@@ -432,7 +442,7 @@ locally.
 * Log: `~/Library/Application Support/Hoopa/hoopa.log`, started over once it
   passes 2 MB.
 * Preferences (`local.phantom.hoopa`): the panel frame, the collapsed state,
-  the screen edge the panel is docked at (`dock`, `left` or `right`),
+  the screen edge the panel is docked at (`dock`: `left`, `right` or `top`),
   the sort setting, the interface language, whether updates are checked
   automatically, the sync folder (`syncFolder`, a path; the iCloud Drive
   folder's path stands for *iCloud Drive*) and the sync clock (`syncNode`,

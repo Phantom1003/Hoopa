@@ -1,6 +1,14 @@
 import AppKit
 import Combine
 
+/// What the window's layer mask is cut from (see FirstMouseHostingView.setMask): the plate's current rect (root view coordinates, spanning the ear's column; nil before the first layout)
+/// and the ear: how far it is out, and whether it is on the right side of the panel (docked at the left edge) instead of the left.
+struct MaskGeometry: Equatable {
+    var plate: CGRect?
+    var ear: CGFloat = 0.5
+    var earRight = false
+}
+
 /// The bridge between the UI and the AppKit layer: binding, jumping, toasts, collapse / expand.
 final class AppCoordinator: ObservableObject {
     @Published var jumpingID: UUID?
@@ -22,8 +30,9 @@ final class AppCoordinator: ObservableObject {
     @Published var adding = false
     /// The size of the window's content area (reported by FloatingPanel): the expanded panel's plate fills it.
     @Published var panelSize = CGSize(width: 360, height: 480)
-    /// Docked at the right edge of the screen (see EdgeDock): the plate runs on past the window's right edge, so its right corners are square against the screen edge.
-    @Published var flushRight = false
+    /// The screen edge the panel is docked at (see EdgeDock): the plate runs on past the window's edge on that side, so its corners there are square against the edge;
+    /// docked at the left edge the ear moves to the right side of the panel.
+    @Published var dockSide: EdgeDock.Side? { didSet { mask.earRight = dockSide == .left } }
     /// The binding and time "chosen but not yet created" in the composer.
     @Published var pendingBinding: ContextBinding?
     @Published var pendingDue: DueSpec?
@@ -34,9 +43,8 @@ final class AppCoordinator: ObservableObject {
     var onCompactChanged: ((Bool) -> Void)?
     /// The plate's current rect (root view coordinates) and how far the ear is out: RootView reports them every frame (mid-animation values) and the window's layer mask follows.
     /// Keeps the latest value because the root view is first evaluated before the window hooks up onMaskChange (see AppDelegate).
-    var plateFrame: CGRect? { didSet { if plateFrame != oldValue { onMaskChange?(plateFrame, earExtent) } } }
-    var earExtent: CGFloat = 0.5 { didSet { if earExtent != oldValue { onMaskChange?(plateFrame, earExtent) } } }
-    var onMaskChange: ((CGRect?, CGFloat) -> Void)?
+    var mask = MaskGeometry() { didSet { if mask != oldValue { onMaskChange?(mask) } } }
+    var onMaskChange: ((MaskGeometry) -> Void)?
     var onQuit: (() -> Void)?
 
     private var toastToken = 0

@@ -17,7 +17,7 @@ final class FloatingPanel: NSPanel {
     private let hosting: FirstMouseHostingView<AnyView>
     /// The window size changed (including the growth at the moment of expanding); report it to the UI layer.
     var onResize: ((CGSize) -> Void)?
-    /// Docking at a screen edge (dropped against the left or right edge, the panel slides off the screen when the mouse leaves), see EdgeDock.
+    /// Docking at a screen edge (dropped against the left, right or top edge, the panel slides off the screen when the mouse leaves), see EdgeDock.
     private(set) var dock: EdgeDock!
 
     init(contentView: FirstMouseHostingView<AnyView>) {
@@ -62,7 +62,10 @@ final class FloatingPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 
     /// The system keeps windows below the menu bar by default, so dragging to the top of the screen "sticks"; the floating panel may reach the top edge.
+    /// Docked at the top edge the frame is the dock's business and not constrained at all, unless the mouse is dragging the window: tucked, the panel sits above the screen but for its strip,
+    /// and AppKit re-validates the frame on its own occasions (not only while the dock is placing it), which pushed a tucked panel back down to the top of the screen.
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        if let dock, dock.placing || (dock.side == .top && !dock.dragging) { return frameRect }
         guard let s = screen ?? self.screen ?? NSScreen.main else { return frameRect }
         var f = frameRect
         f.origin.y = min(f.origin.y, s.frame.maxY - f.height)
@@ -133,23 +136,32 @@ final class FloatingPanel: NSPanel {
         expandedSize = frame.size
     }
 
-    /// The mask geometry, reported by RootView every frame: the plate's current rect (root view coordinates) and how far the ear is out. See FirstMouseHostingView.setMask.
-    func setMask(plate: CGRect?, ear: CGFloat) { hosting.setMask(plate: plate, ear: ear) }
+    /// The mask geometry, reported by RootView every frame: the plate's current rect (root view coordinates) and the ear. See FirstMouseHostingView.setMask.
+    func setMask(_ geometry: MaskGeometry) { hosting.setMask(geometry) }
+
+    /// Cut this much off the top of the window (docked at the top edge, the part behind the menu bar). See FirstMouseHostingView.setHiddenTop.
+    func setHiddenTop(_ hidden: CGFloat) { hosting.setHiddenTop(hidden) }
 }
 
 /// When the panel is not the key window the first click also goes straight to SwiftUI instead of only making the window key;
 /// pressing on empty space (not a button / text field) drags the whole window (a borderless window has no title bar to drag).
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
-    /// The mask geometry, reported by RootView every frame (mid-animation SwiftUI values): the plate's current rect (root view coordinates, spanning the ear's column) and how far the ear is out.
+    /// The mask geometry, reported by RootView every frame (mid-animation SwiftUI values): the plate's current rect (root view coordinates, spanning the ear's column) and the ear.
     /// The mask has no animation of its own and follows every frame, so the corners always sit on the plate's corners: if the mask clipped to the window size while the plate shrinks / grows,
     /// the plate's bottom left corner would land on the mask's straight edge and turn square (the plate's left corners are cut by the mask; the glass itself extends under the ear's column).
-    private var plateRect: CGRect?
-    private var earExtent: CGFloat = 0.5
+    private var geometry = MaskGeometry()
+    /// The top of the window cut off by the mask: docked at the top edge, the part slid up behind the (transparent) menu bar, see EdgeDock.
+    private var hiddenTop: CGFloat = 0
 
-    func setMask(plate: CGRect?, ear: CGFloat) {
-        guard plate != plateRect || ear != earExtent else { return }
-        plateRect = plate
-        earExtent = ear
+    func setMask(_ g: MaskGeometry) {
+        guard g != geometry else { return }
+        geometry = g
+        updateMask()
+    }
+
+    func setHiddenTop(_ hidden: CGFloat) {
+        guard hidden != hiddenTop else { return }
+        hiddenTop = hidden
         updateMask()
     }
     /// Collapsed: the window is sized to the content. NSHostingView's own preferredContentSize does nothing here, so measure and set it ourselves.
@@ -239,21 +251,27 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         mask.frame = b
-        mask.path = maskPath(in: b, plate: plateRect ?? b, ear: earExtent)
+        var path = maskPath(in: b, geometry)
+        if hiddenTop > 0 {   // docked at the top edge: whatever is behind the menu bar is cut off
+            path = path.intersection(CGPath(rect: CGRect(x: b.minX, y: b.minY + hiddenTop, width: b.width, height: max(b.height - hiddenTop, 0)), transform: nil))
+        }
+        mask.path = path
         layer.mask = mask
         CATransaction.commit()
         window?.invalidateShadow()    // a transparent window's shadow follows the content's shape; refresh it when the shape changes or it keeps the old one
     }
 
-    /// The plate rect is clipped to a rounded rectangle from the right of the ear's column; the ear slides out w wide to the left from under the panel (extending Ear.radius under the panel so the seam does not show),
-    /// and a very small w means no ear. Coordinates start at the top left (NSHostingView is flipped, matching SwiftUI's root view coordinates).
-    private func maskPath(in b: CGRect, plate: CGRect, ear w: CGFloat) -> CGPath {
+    /// The plate rect without the ear's column (on its left, or on its right when the ear is there) is clipped to a rounded rectangle; the ear slides out w wide from under the panel on that side
+    /// (extending Ear.radius under the panel so the seam does not show), and a very small w means no ear. Coordinates start at the top left (NSHostingView is flipped, matching SwiftUI's root view coordinates).
+    private func maskPath(in b: CGRect, _ g: MaskGeometry) -> CGPath {
+        let plate = g.plate ?? b
         let path = CGMutablePath()
-        let body = CGRect(x: Ear.width, y: plate.minY, width: max(plate.maxX - Ear.width, 0), height: plate.height)
+        let body = CGRect(x: plate.minX + (g.earRight ? 0 : Ear.width), y: plate.minY, width: max(plate.width - Ear.width, 0), height: plate.height)
         let radius = min(18, body.width / 2, body.height / 2)
         path.addRoundedRect(in: body, cornerWidth: radius, cornerHeight: radius)
-        let r = min(Ear.radius, w / 2)
-        path.addRoundedRect(in: CGRect(x: Ear.width + Ear.radius - w, y: Ear.top, width: w, height: Ear.height), cornerWidth: r, cornerHeight: r)
+        let w = g.ear, r = min(Ear.radius, w / 2)
+        let x = g.earRight ? body.maxX - Ear.radius : body.minX + Ear.radius - w
+        path.addRoundedRect(in: CGRect(x: x, y: Ear.top, width: w, height: Ear.height), cornerWidth: r, cornerHeight: r)
         return path
     }
 
