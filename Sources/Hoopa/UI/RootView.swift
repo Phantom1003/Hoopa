@@ -172,6 +172,8 @@ struct ExpandedView: View {
     @EnvironmentObject var coordinator: AppCoordinator
     @EnvironmentObject var updater: Updater
     @State private var showDone = false
+    /// Read from the system when the view appears; refreshed after every switch of the toggle.
+    @State private var launchAtLogin = LoginItem.enabled
     /// The confirmation before deleting everything.
     @State private var confirmDeleteAll = false
     /// Sort by time (remembered). Only the display order: switched off, the list returns to its own order.
@@ -243,6 +245,13 @@ struct ExpandedView: View {
                     get: { coordinator.alwaysOnTop },
                     set: { coordinator.alwaysOnTop = $0; coordinator.onAlwaysOnTopChanged?($0) }))
                 Toggle("Show Completed", isOn: $showDone)
+                // The system's own login item state (see LoginItem); a failure or a pending approval is reported in the toast.
+                Toggle("Launch at Login", isOn: Binding(
+                    get: { launchAtLogin },
+                    set: { on in
+                        if let message = LoginItem.set(on) { coordinator.showToast(message, seconds: 5) }
+                        launchAtLogin = LoginItem.enabled
+                    }))
                 // Switching the language relaunches the app. Language names are not translated.
                 Picker("Language", selection: Binding(get: { AppLanguage.current }, set: { AppLanguage.switchTo($0) })) {
                     ForEach(AppLanguage.allCases) { Text(verbatim: $0.name).tag($0) }

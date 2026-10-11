@@ -63,13 +63,21 @@ The panel has no header: the list starts at the top. The item count, **+**
 float in a glass capsule at the bottom right, and the list leaves room under
 its last card so that card can scroll clear of the capsule. The trash button
 deletes every to-do, completed ones included, after a confirmation. The ⋯
-menu holds *Keep Panel on Top*, *Show Completed*, *Language*, *Sync* (see
+menu holds *Keep Panel on Top*, *Show Completed*, *Launch at Login*,
+*Language*, *Sync* (see
 [Sync between Macs](#sync-between-macs)), the Accessibility status, *Clear
 Completed*, the version with the update controls (see
 [Software update](#software-update)), the shortcut reminder and *Quit
 Hoopa*. While a newer release exists, an accent-coloured **⬇**
 joins the capsule in front of ⋯. While Accessibility is not granted, an
 orange banner with a *Grant* button sits at the top of the panel.
+
+*Launch at Login* registers Hoopa as a login item through the system
+(`SMAppService`): it is the same switch as the one under System Settings ›
+General › Login Items, so either place shows the true state and nothing is
+kept in the preferences. If you had switched Hoopa off there before, the
+system wants you to allow it there again; Hoopa says so in a toast and opens
+that pane.
 
 Each to-do is a card:
 
