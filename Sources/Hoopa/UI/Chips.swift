@@ -114,10 +114,13 @@ struct DueText: View {
 }
 
 /// The time chip: countdown (refreshed every second) + absolute time, the same for timers and date-times. action: a click changes the time; onRemove: the × on the right removes the time.
+/// ring: the to-do's time ring state at a moment; with it the countdown takes the ring's colour (the same band colour as on the collapsed list's ball), red once overdue.
+/// Without it (a time not yet submitted in the picker) the countdown only carries the warning colours. The absolute time stays grey either way.
 struct DueChip: View {
     let due: Due
     var showDetail = true
     var bare = false
+    var ring: ((Date) -> Ladder.State?)? = nil
     var action: (() -> Void)? = nil
     var help: String? = nil
     var onRemove: (() -> Void)? = nil
@@ -125,11 +128,12 @@ struct DueChip: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let l = TimeFormat.label(due, now: ctx.date)
+            let countdown = l.overdue ? Style.overdue : (ring?(ctx.date)?.color ?? l.alert ?? Style.text)
             HStack(spacing: 6) {
                 // When the absolute time is not shown (no room) hover shows it, replacing the button's own tooltip.
                 ChipButton(action: action, help: showDetail ? help : l.detail) {
                     HStack(spacing: 4) {
-                        Text(l.text).monospacedDigit()
+                        Text(l.text).monospacedDigit().foregroundStyle(countdown)
                         if showDetail {
                             // Countdown first, the absolute time after it: with a separator dot, in grey.
                             Text("·").foregroundStyle(Style.tertiary)
@@ -141,7 +145,7 @@ struct DueChip: View {
             }
             .lineLimit(1)
             .fixedSize()          // the time must never wrap to two lines
-            .foregroundStyle(l.alert ?? Style.text)
+            .foregroundStyle(Style.text)
             // The capsule tint follows the warning (matching the time ring): orange in the last ten minutes, red in the last minute and once overdue.
             .modifier(OptionalChip(enabled: !bare, tint: l.overdue || l.critical ? Style.overdue.opacity(0.2)
                                                     : (l.urgent ? Style.urgent.opacity(0.15) : Style.chip)))

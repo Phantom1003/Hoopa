@@ -125,7 +125,7 @@ struct TodoCard: View {
                             onRemove: { store.setBinding(nil, for: todo.id) })
             }
             if let d = todo.due {
-                DueChip(due: d, showDetail: detail, action: { showDue.toggle() }, help: String(localized: "Change time"),
+                DueChip(due: d, showDetail: detail, ring: todo.ring, action: { showDue.toggle() }, help: String(localized: "Change time"),
                         onRemove: { store.setDue(nil, for: todo.id) })
             }
         }
