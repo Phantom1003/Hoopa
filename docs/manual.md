@@ -39,8 +39,11 @@ so the window you are working in keeps the keyboard. Drag it by any empty
 area; the expanded panel can be resized and remembers its frame.
 
 Show or hide it with **⌃⌥T** or a left click on the menu bar icon. A right
-click on the icon gives a menu with *Show/Hide Panel*, *Expand/Collapse* and
-*Quit*.
+click on the icon gives a menu with *Show/Hide Panel*, *Expand/Collapse*,
+*Hide at the Screen Edge* (see [Hiding at the screen
+edge](#hiding-at-the-screen-edge)), a *Settings* submenu with the settings
+of the ⋯ menu (on top, login item, language, sync, Accessibility, updates)
+and *Quit*.
 
 ### Hiding at the screen edge
 
@@ -63,14 +66,18 @@ panel by itself (at launch, or after binding), a docked panel comes out for
 a glimpse and goes away unless the mouse comes. Collapsing and expanding
 work as usual and the panel is snapped to the edge again afterwards. Drag it
 away from the edge to undock it. The edge is remembered across launches. An
-edge that another display continues past is not a docking edge.
+edge that another display continues past is not a docking edge. To keep a
+docked panel out at the edge instead of hiding it, switch *Hide at the
+Screen Edge* off in the ⋯ menu or in the menu bar icon's menu; it then stays
+flush with the edge until you drag it away.
 
 The panel has no header: the list starts at the top. The item count, **+**
 (the composer), **⇅** (sort by time), the trash button and the **⋯** menu
 float in a glass capsule at the bottom right, and the list leaves room under
 its last card so that card can scroll clear of the capsule. The trash button
 deletes every to-do, completed ones included, after a confirmation. The ⋯
-menu holds *Keep Panel on Top*, *Show Completed*, *Launch at Login*,
+menu holds *Keep Panel on Top*, *Hide at the Screen Edge*, *Show Completed*,
+*Launch at Login*,
 *Language*, *Sync* (see
 [Sync between Macs](#sync-between-macs)), the Accessibility status, *Clear
 Completed*, the version with the update controls (see
@@ -442,7 +449,8 @@ locally.
 * Log: `~/Library/Application Support/Hoopa/hoopa.log`, started over once it
   passes 2 MB.
 * Preferences (`local.phantom.hoopa`): the panel frame, the collapsed state,
-  the screen edge the panel is docked at (`dock`: `left`, `right` or `top`),
+  the screen edge the panel is docked at (`dock`: `left`, `right` or `top`)
+  and whether a docked panel hides (`dockAutoHide`, on unless set),
   the sort setting, the interface language, whether updates are checked
   automatically, the sync folder (`syncFolder`, a path; the iCloud Drive
   folder's path stands for *iCloud Drive*) and the sync clock (`syncNode`,

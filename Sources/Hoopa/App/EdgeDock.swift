@@ -7,6 +7,7 @@ import AppKit
 /// (transparent on macOS 26, it would show the glass through) is cut off by the window mask.
 /// Docked at the left edge the UI puts the ear on the right side of the panel, so the window's left edge is the plate's and the strip left on screen is the plate's, not the ear's column.
 /// Dragging it away from the edge undocks it, and it is an ordinary floating panel again. The side is remembered across launches.
+/// With autoHide off a docked panel stays out, flush with the edge, and never slides away (a setting in the ⋯ menu and the menu bar menu).
 /// Tucking waits while the mouse button is down, a menu or popover is open, or a key was just typed into the panel, so nothing slides away under the user's hands.
 /// The window is only ever moved, never resized, here; collapse / expand keep working, and after a resize the panel is snapped to the edge again.
 final class EdgeDock {
@@ -24,6 +25,17 @@ final class EdgeDock {
 
     private unowned let window: FloatingPanel
     private static let key = "dock"
+    private static let autoHideKey = "dockAutoHide"
+    /// Whether a docked panel slides off the screen when the mouse leaves (on unless set) or stays out until it is undocked. Switching it off brings a tucked panel out; switching it on tucks it soon.
+    var autoHide: Bool {
+        get { UserDefaults.standard.object(forKey: Self.autoHideKey) == nil ? true : UserDefaults.standard.bool(forKey: Self.autoHideKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.autoHideKey)
+            Log.write("Dock: hide at the edge \(newValue ? "on" : "off")")
+            guard side != nil else { return }
+            if newValue { scheduleTuck(after: Self.tuckAfter) } else { tuckWork?.cancel(); place(tucked: false, animated: true) }
+        }
+    }
     private(set) var side: Side? {
         didSet {
             if let side { UserDefaults.standard.set(side.rawValue, forKey: Self.key) } else { UserDefaults.standard.removeObject(forKey: Self.key) }
@@ -219,7 +231,7 @@ final class EdgeDock {
 
     /// Tuck now, unless something is going on: then look again shortly (mouseExited does not come again while the mouse rests in the transparent ear column).
     private func tryTuck() {
-        guard side != nil, !isTucked, window.isVisible else { return }
+        guard side != nil, autoHide, !isTucked, window.isVisible else { return }
         if isBusy || window.frame.insetBy(dx: -4, dy: -4).contains(NSEvent.mouseLocation) {
             scheduleTuck(after: 0.5)
             return

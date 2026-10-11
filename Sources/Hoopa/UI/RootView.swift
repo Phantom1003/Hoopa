@@ -252,6 +252,10 @@ struct ExpandedView: View {
                 Toggle("Keep Panel on Top", isOn: Binding(
                     get: { coordinator.alwaysOnTop },
                     set: { coordinator.alwaysOnTop = $0; coordinator.onAlwaysOnTopChanged?($0) }))
+                // Docked at a screen edge (see EdgeDock): slide away when the mouse leaves, or stay out at the edge. Also in the menu bar menu.
+                Toggle("Hide at the Screen Edge", isOn: Binding(
+                    get: { coordinator.dockAutoHide },
+                    set: { coordinator.setDockAutoHide($0) }))
                 Toggle("Show Completed", isOn: $showDone)
                 // The system's own login item state (see LoginItem); a failure or a pending approval is reported in the toast.
                 Toggle("Launch at Login", isOn: Binding(
@@ -260,6 +264,7 @@ struct ExpandedView: View {
                         if let message = LoginItem.set(on) { coordinator.showToast(message, seconds: 5) }
                         launchAtLogin = LoginItem.enabled
                     }))
+                    .onAppear { launchAtLogin = LoginItem.enabled }   // it may have been switched from the menu bar menu meanwhile
                 // Switching the language relaunches the app. Language names are not translated.
                 Picker("Language", selection: Binding(get: { AppLanguage.current }, set: { AppLanguage.switchTo($0) })) {
                     ForEach(AppLanguage.allCases) { Text(verbatim: $0.name).tag($0) }
@@ -299,17 +304,8 @@ struct ExpandedView: View {
         }
     }
 
-    /// The folder chooser for Sync ▸ Other Folder…: the panel is non-activating, so the app is activated for the dialog.
     private func chooseSyncFolder() {
-        let dialog = NSOpenPanel()
-        dialog.canChooseDirectories = true
-        dialog.canChooseFiles = false
-        dialog.canCreateDirectories = true
-        dialog.prompt = String(localized: "Sync Here")
-        dialog.message = String(localized: "Choose a folder your Macs share (iCloud Drive, Dropbox, Syncthing, …). Hoopa keeps todos.json in it.")
-        if case .folder(let current) = store.syncMode { dialog.directoryURL = current }
-        NSApp.activate(ignoringOtherApps: true)
-        if dialog.runModal() == .OK, let url = dialog.url { store.setSync(SyncMode.forFolder(url)) }
+        if let url = SyncFolderChooser.run(current: store.syncMode.folder) { store.setSync(SyncMode.forFolder(url)) }
     }
 
     /// The update item in the ⋯ menu: normally "Check for Updates…", "Update to X and Relaunch" once a newer version exists, and only what it is doing while busy.
@@ -535,6 +531,21 @@ struct DayGroup: Identifiable {
             groups[s, default: []].append(t)
         }
         return Section.allCases.compactMap { s in groups[s].map { DayGroup(section: s, items: $0) } }
+    }
+}
+
+/// The folder chooser for Sync ▸ Other Folder… (the ⋯ menu and the menu bar menu): the panel is non-activating, so the app is activated for the dialog. The chosen folder, or nil.
+enum SyncFolderChooser {
+    static func run(current: URL?) -> URL? {
+        let dialog = NSOpenPanel()
+        dialog.canChooseDirectories = true
+        dialog.canChooseFiles = false
+        dialog.canCreateDirectories = true
+        dialog.prompt = String(localized: "Sync Here")
+        dialog.message = String(localized: "Choose a folder your Macs share (iCloud Drive, Dropbox, Syncthing, …). Hoopa keeps todos.json in it.")
+        dialog.directoryURL = current
+        NSApp.activate(ignoringOtherApps: true)
+        return dialog.runModal() == .OK ? dialog.url : nil
     }
 }
 

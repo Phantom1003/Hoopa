@@ -15,6 +15,8 @@ final class AppCoordinator: ObservableObject {
     @Published var toast: String?
     @Published var isPicking = false
     @Published var alwaysOnTop = true
+    /// A docked panel slides off the screen when the mouse leaves (see EdgeDock.autoHide); off, it stays out at the edge. Mirrors the dock's setting for the menus.
+    @Published var dockAutoHide = true
     /// Collapsed (a glass slab: a row of balls and the most urgent to-do).
     @Published var isCompact = false {
         willSet {
@@ -40,6 +42,7 @@ final class AppCoordinator: ObservableObject {
     /// Pick: nil means picking for the to-do about to be created in the composer.
     var onStartPicking: ((TodoItem?) -> Void)?
     var onAlwaysOnTopChanged: ((Bool) -> Void)?
+    var onDockAutoHideChanged: ((Bool) -> Void)?
     var onCompactChanged: ((Bool) -> Void)?
     /// The plate's current rect (root view coordinates) and how far the ear is out: RootView reports them every frame (mid-animation values) and the window's layer mask follows.
     /// Keeps the latest value because the root view is first evaluated before the window hooks up onMaskChange (see AppDelegate).
@@ -48,6 +51,12 @@ final class AppCoordinator: ObservableObject {
     var onQuit: (() -> Void)?
 
     private var toastToken = 0
+
+    /// Hide at the screen edge on / off, from the ⋯ menu or the menu bar menu.
+    func setDockAutoHide(_ on: Bool) {
+        dockAutoHide = on
+        onDockAutoHideChanged?(on)
+    }
 
     /// Launch straight into the collapsed state (no collapse animation: the window has not hooked up onCompactChanged yet).
     func restoreCompact() { isCompact = true }

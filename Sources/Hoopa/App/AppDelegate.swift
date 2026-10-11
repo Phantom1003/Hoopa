@@ -40,6 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         panel.onResize = { [weak self] size in self?.coordinator.panelSize = size }
         panel.dock.onSideChange = { [weak self] side in self?.coordinator.dockSide = side }
         coordinator.dockSide = panel.dock.side
+        coordinator.dockAutoHide = panel.dock.autoHide
+        coordinator.onDockAutoHideChanged = { [weak self] on in self?.panel.dock.autoHide = on }
         coordinator.panelSize = panel.frame.size
         if startCompact { panel.setCompact(true, animated: false) }
         coordinator.onCompactChanged = { [weak self] compact in
@@ -112,6 +114,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             let menu = NSMenu()
             menu.addItem(withTitle: panel.isVisible && !panel.isTucked ? String(localized: "Hide Panel") : String(localized: "Show Panel"), action: #selector(togglePanel), keyEquivalent: "")
             menu.addItem(withTitle: coordinator.isCompact ? String(localized: "Expand") : String(localized: "Collapse"), action: #selector(toggleCompact), keyEquivalent: "")
+            // The same switch as in the ⋯ menu: a docked panel slides away when the mouse leaves, or stays out at the edge.
+            let hide = menu.addItem(withTitle: String(localized: "Hide at the Screen Edge"), action: #selector(toggleDockAutoHide), keyEquivalent: "")
+            hide.state = coordinator.dockAutoHide ? .on : .off
+            // Settings ▸: the rest of the ⋯ menu's settings, so they can be reached without the panel.
+            let settings = menu.addItem(withTitle: String(localized: "Settings"), action: nil, keyEquivalent: "")
+            settings.submenu = settingsMenu()
             // One more item while a newer version exists: the same as the one under ⬇ in the panel; click to download, swap and relaunch.
             if let r = updater.available {
                 menu.addItem(.separator())
@@ -138,6 +146,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @objc private func toggleCompact() { coordinator.isCompact.toggle() }
+    @objc private func toggleDockAutoHide() { coordinator.setDockAutoHide(!coordinator.dockAutoHide) }
+
+    /// Settings ▸ in the menu bar menu: the same settings as in the panel's ⋯ menu (see RootView.menuButton), as AppKit menu items with a tick for what is on.
+    private func settingsMenu() -> NSMenu {
+        let menu = NSMenu()
+        func toggle(_ title: String, _ on: Bool, _ action: Selector, in menu: NSMenu, enabled: Bool = true) {
+            let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+            item.state = on ? .on : .off
+            item.isEnabled = enabled
+        }
+        toggle(String(localized: "Keep Panel on Top"), coordinator.alwaysOnTop, #selector(toggleAlwaysOnTop), in: menu)
+        toggle(String(localized: "Launch at Login"), LoginItem.enabled, #selector(toggleLaunchAtLogin), in: menu)
+        // Language names are not translated; switching relaunches the app.
+        let language = NSMenu()
+        for l in AppLanguage.allCases {
+            let item = language.addItem(withTitle: l.name, action: #selector(switchLanguage(_:)), keyEquivalent: "")
+            item.representedObject = l.rawValue
+            item.state = l == AppLanguage.current ? .on : .off
+        }
+        menu.addItem(withTitle: String(localized: "Language"), action: nil, keyEquivalent: "").submenu = language
+        let sync = NSMenu()
+        toggle(String(localized: "Off"), store.syncMode == .off, #selector(syncOff), in: sync)
+        toggle(String(localized: "iCloud Drive"), store.syncMode == .iCloudDrive, #selector(syncICloud), in: sync)
+        var folder = false
+        if case .folder = store.syncMode { folder = true }
+        toggle(String(localized: "Other Folder…"), folder, #selector(syncOtherFolder), in: sync)
+        if store.syncMode.folder != nil {
+            sync.addItem(.separator())
+            sync.addItem(withTitle: String(localized: "Show Sync Folder in Finder"), action: #selector(showSyncFolder), keyEquivalent: "")
+        }
+        menu.addItem(withTitle: String(localized: "Sync"), action: nil, keyEquivalent: "").submenu = sync
+        menu.addItem(.separator())
+        let ax = menu.addItem(withTitle: permissions.accessibility ? String(localized: "Accessibility Access: Granted") : String(localized: "Grant Accessibility Access…"),
+                              action: #selector(requestAccessibility), keyEquivalent: "")
+        ax.isEnabled = !permissions.accessibility
+        menu.addItem(.separator())
+        toggle(String(localized: "Check for Updates Automatically"), updater.automatic, #selector(toggleAutoUpdate), in: menu)
+        menu.addItem(withTitle: String(localized: "Check for Updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
+        menu.autoenablesItems = false
+        for m in [menu, language, sync] { m.items.forEach { $0.target = self } }
+        return menu
+    }
+
+    @objc private func toggleAlwaysOnTop() {
+        coordinator.alwaysOnTop.toggle()
+        coordinator.onAlwaysOnTopChanged?(coordinator.alwaysOnTop)
+    }
+    @objc private func toggleLaunchAtLogin() {
+        if let message = LoginItem.set(!LoginItem.enabled) { coordinator.showToast(message, seconds: 5) }
+    }
+    @objc private func switchLanguage(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let l = AppLanguage(rawValue: raw) { AppLanguage.switchTo(l) }
+    }
+    @objc private func syncOff() { store.setSync(.off) }
+    @objc private func syncICloud() { store.setSync(store.syncMode == .iCloudDrive ? .off : .iCloudDrive) }
+    @objc private func syncOtherFolder() { if let url = SyncFolderChooser.run(current: store.syncMode.folder) { store.setSync(SyncMode.forFolder(url)) } }
+    @objc private func showSyncFolder() { if let folder = store.syncMode.folder { NSWorkspace.shared.activateFileViewerSelecting([folder]) } }
+    @objc private func requestAccessibility() { permissions.request() }
+    @objc private func toggleAutoUpdate() { updater.automatic.toggle() }
+    @objc private func checkForUpdates() { updater.check(manual: true) }
 
     @objc private func installUpdate() { updater.install() }
 

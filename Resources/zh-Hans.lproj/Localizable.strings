@@ -7,6 +7,8 @@
 "Sorted by time · click for manual order" = "已按时间排序 · 点击恢复手动顺序";
 "Sort by time turned off to keep your order" = "已关闭按时间排序，保留拖动后的顺序";
 "Keep Panel on Top" = "面板置顶";
+"Hide at the Screen Edge" = "贴边时自动隐藏";
+"Settings" = "设置";
 "Show Completed" = "显示已完成";
 "Language" = "语言";
 "Accessibility Access: Granted" = "辅助功能权限：已授予";
