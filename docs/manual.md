@@ -192,7 +192,7 @@ switched*, *Switched to the window, but couldn't find the exact target*,
 
 | Anchor | Interface | Apps | Jump | Confirmation |
 |---|---|---|---|---|
-| Tab | The browser's AppleScript dictionary | Safari and the Chromium family (Chrome, Edge, Brave, Vivaldi, Opera, Chromium) | Find the tab by URL and switch to it; open the URL in a new tab if it was closed | Window title equals the tab title |
+| Tab | The browser's AppleScript dictionary; failing that (no dictionary, or the Automation grant refused), the `AXURL` of the window's web area | Safari and the Chromium family (Chrome, Edge, Brave, Vivaldi, Opera, Chromium); Firefox, Arc, Dia, Zen and Orion through the web area only | Find the tab by URL and switch to it; open the URL in a new tab if it was closed. Without AppleScript: raise the window showing that title, else hand the URL to the browser through the system | Window title equals the tab title; the web area's `AXURL` is that URL |
 | Document | The window's `AXDocument` (a standard attribute) | Xcode, Preview, TextEdit, Pages, … | Ask the app to open the file again | The window's `AXDocument` is that path |
 | Link | A link format from the app's **official documentation**: Slack deep links `slack://channel?team=…&id=…` (workspace ID from the web area's `AXURL`, conversation ID from the row's `AXDOMIdentifier`), Obsidian `obsidian://open?vault=…&file=…`, VS Code `vscode://file/<absolute path>` (from the explorer row's full path; not for SSH remote windows) | Slack, Obsidian, VS Code | Hand the link to the app | Window title, or the conversation / note name showing somewhere in the window |
 | Element | The Accessibility tree: role, text, `AXDOMIdentifier`, path from the window, the enclosing tab panel (`AXTabPanel`), position within the window | Any app with an Accessibility tree (Claude, Codex, VS Code, Finder, …), picked with ⌥ | The flow below | Target becomes selected, its text appears elsewhere, or the window title changes |
@@ -476,8 +476,10 @@ locally.
 
 * Apps that draw their own UI (WeChat, DingTalk, …) have no Accessibility
   tree; only the window can be bound.
-* Browsers without an AppleScript dictionary (Arc, Firefox, …) fall back to
-  window + title matching.
+* Browsers without an AppleScript dictionary (Firefox, Arc, Dia, Zen, Orion)
+  keep the page URL read from the window's web area. A tab that is open but
+  not showing in any window cannot be switched to there, so the jump opens
+  the URL again in a new tab.
 * Slack with several workspaces works through the deep link, which carries
   the workspace ID; picking a conversation with ⌥ needs its row visible in
   the sidebar.

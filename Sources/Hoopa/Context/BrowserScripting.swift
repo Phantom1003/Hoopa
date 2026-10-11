@@ -23,6 +23,14 @@ enum BrowserScripting {
         safariIDs.contains(bundleID) || chromiumIDs.contains(bundleID)
     }
 
+    /// Browsers without an AppleScript dictionary: the page URL comes from the window's web area instead and is reopened through the system.
+    static let axOnlyIDs: Set<String> = [
+        "org.mozilla.firefox", "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly",
+        "company.thebrowser.Browser", "company.thebrowser.dia", "app.zen-browser.zen", "com.kagi.kagimacOS",
+    ]
+
+    static func isBrowser(_ bundleID: String) -> Bool { supports(bundleID) || axOnlyIDs.contains(bundleID) }
+
     private static let fs = "\u{1F}"
     private static let rs = "\u{1E}"
 

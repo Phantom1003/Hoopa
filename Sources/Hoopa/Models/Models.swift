@@ -31,7 +31,7 @@ struct AXAnchor: Codable, Equatable {
 /// One "anchor" back to a page. Binding records every anchor available, most reliable first, and jumping tries them in the same order:
 /// the app's public interfaces (scripting, files, documented links) → the Accessibility element → the window.
 enum Anchor: Codable, Equatable {
-    case browserTab(url: String, title: String)   // switch the tab through the browser's AppleScript interface
+    case browserTab(url: String, title: String)   // switch to the tab (the browser's AppleScript interface), or reopen the URL when it is gone
     case document(path: String)                   // ask the app to reopen the file (the window's AXDocument)
     case link(url: String, expect: String?)       // a link format from the app's official documentation (Slack, Obsidian); expect is used to confirm
     case element(AXAnchor)                        // an Accessibility element

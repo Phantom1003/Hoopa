@@ -97,10 +97,13 @@ enum ContextCapture {
                                windowTitle: t.windowTitle, windowID: t.window.id, anchors: [])
         var summary: String?
 
-        // 1) Browser: the tab URL through AppleScript.
+        // 1) Browser: the tab URL through AppleScript; failing that (no dictionary, Automation refused), the page URL from the window's web area.
         if t.interfaces.browserScripting, let tab = BrowserTabs.resolve(t) {
             b.anchors.append(.browserTab(url: tab.url, title: tab.title))
             summary = summary ?? tab.title
+        } else if BrowserScripting.isBrowser(t.bundleID), let page = BrowserTabs.pageFromAX(t) {
+            b.anchors.append(.browserTab(url: page.url, title: page.title))
+            summary = summary ?? page.title
         }
         // 2) Document window: the app tells us the file path.
         if t.element == nil, let w = t.axWindow,
