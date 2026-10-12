@@ -71,7 +71,7 @@ enum TimeFormat {
         let text: String       // the chip's main text (countdown; "Overdue" once past due)
         let detail: String     // the secondary text (absolute time)
         let overdue: Bool
-        let urgent: Bool       // the last 10 minutes (matching the time ring's yellow and orange bands, timers and dates alike)
+        let urgent: Bool       // the last 10 minutes (matching the time ring's orange band, timers and dates alike)
         let critical: Bool     // the last minute (the time ring's red lap)
     }
 

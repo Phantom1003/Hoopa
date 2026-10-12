@@ -10,6 +10,8 @@
 "Hide at the Screen Edge" = "贴边时自动隐藏";
 "Settings" = "设置";
 "Show Completed" = "显示已完成";
+"Rows When Collapsed" = "折叠时显示的行数";
+"%lld rows" = "%lld 行";
 "Language" = "语言";
 "Accessibility Access: Granted" = "辅助功能权限：已授予";
 "Grant Accessibility Access…" = "授予辅助功能权限…";
@@ -66,6 +68,9 @@
 "Bind to Window / Page…" = "绑定到窗口 / 页面…";
 "Timer / Date…" = "倒计时 / 时间…";
 "Remove Time" = "删除时间";
+"Copy" = "拷贝";
+"Duplicate" = "复制";
+"Copied" = "已拷贝";
 "Mark as Done" = "标记为完成";
 "Mark as done" = "标记为完成";
 "Mark as Not Done" = "标记为未完成";

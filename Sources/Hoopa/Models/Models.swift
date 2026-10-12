@@ -300,11 +300,14 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var completedAt: Date? = nil
     var binding: ContextBinding? = nil
     var due: Due? = nil
-    var dueSetAt: Date? = nil      // when the time was set: the time ring's first lap starts here (missing in old data, falls back to createdAt)
+    var dueSetAt: Date? = nil      // when the time was set (missing in old data); kept for the sync merge, the time ring no longer reads it
     var changed: FieldStamps       // when each part last changed: the sync merge is per part (see merged)
 
     /// The last change to any part.
     var updatedAt: Stamp { changed.latest }
+
+    /// The to-do as plain text for the clipboard: the title, then the notes on the lines below it.
+    var clipboardText: String { notes.isEmpty ? title : title + "\n" + notes }
 
     /// `stamp`: the new to-do's change stamp, from the store's clock; the wall time stands in where there is none.
     init(title: String, notes: String = "", binding: ContextBinding? = nil, due: Due? = nil, stamp: Stamp? = nil) {

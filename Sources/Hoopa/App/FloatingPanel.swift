@@ -19,6 +19,12 @@ final class FloatingPanel: NSPanel {
     var onResize: ((CGSize) -> Void)?
     /// Docking at a screen edge (dropped against the left, right or top edge, the panel slides off the screen when the mouse leaves), see EdgeDock.
     private(set) var dock: EdgeDock!
+    /// The size the panel has by its own doing: set by the app (collapse / expand, the slab fitted to its content) or dragged out by the user. Any other resize is undone, see undoOutsideResize.
+    private var ownSize = NSSize.zero
+    /// The panel is setting its own frame (see setOwnFrame).
+    private var resizingSelf = false
+    /// A drag of the panel by its empty space is on: where the mouse and the window were when it started (screen coordinates).
+    private var drag: (mouse: NSPoint, origin: NSPoint)?
 
     init(contentView: FirstMouseHostingView<AnyView>) {
         hosting = contentView
@@ -27,11 +33,12 @@ final class FloatingPanel: NSPanel {
                    styleMask: [.borderless, .resizable, .nonactivatingPanel],
                    backing: .buffered, defer: false)
         level = .floating
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // fullScreenAuxiliary: the panel shows over other apps' full-screen windows and has no full screen of its own (see toggleFullScreen); disallowsTiling keeps it out of the system's split view.
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .fullScreenDisallowsTiling]
         isFloatingPanel = true
         hidesOnDeactivate = false
         becomesKeyOnlyIfNeeded = false
-        isMovableByWindowBackground = true
+        isMovableByWindowBackground = false   // the panel moves itself when dragged, see mouseDown
         isReleasedWhenClosed = false
         isOpaque = false
         backgroundColor = .clear
@@ -42,11 +49,21 @@ final class FloatingPanel: NSPanel {
         if !setFrameUsingName("HoopaPanel"), let screen = NSScreen.main {
             let f = screen.visibleFrame
             setFrameOrigin(NSPoint(x: f.midX - 180, y: f.maxY - 520))
+        } else if clipped(frame.size) != frame.size {   // saved larger than the screen (filled by the system, or sized on a larger screen): its edges would be off the screen, out of reach
+            let size = clipped(frame.size)
+            Log.write("Saved frame \(NSStringFromSize(frame.size)) is larger than the screen, clipped to \(NSStringFromSize(size))")
+            setFrame(NSRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height), display: false)
         }
+        ownSize = frame.size
         if UserDefaults.standard.string(forKey: "expandedSize") == nil { rememberExpandedSize() }
         NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: self, queue: .main) { [weak self] _ in
             guard let self else { return }
+            if self.undoOutsideResize() { return }    // the undo sets the frame again and this runs once more with the size put back
             self.onResize?(self.frame.size)
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.didEndLiveResizeNotification, object: self, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.ownSize = self.frame.size            // dragged out by the user: the panel's own size from now on
         }
         dock = EdgeDock(window: self)
         hosting.onHover = { [weak self] inside in self?.dock.hover(inside) }
@@ -60,6 +77,64 @@ final class FloatingPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// The panel has no full screen mode and is never zoomed: a to-do list the size of the screen is never wanted, and the panel would come back from it with the screen's size as its own.
+    /// fullScreenAuxiliary leaves it out of the system's full screen already; ⌃⌘F / 🌐F and the Fill shortcuts still arrive here, and do nothing.
+    override func toggleFullScreen(_ sender: Any?) { Log.write("Full screen ignored") }
+    override func zoom(_ sender: Any?) { Log.write("Zoom ignored") }
+
+    /// A press on empty space (nothing in the SwiftUI content took it, so it came down the responder chain to the window) drags the panel; the panel moves itself, by its frame, on every
+    /// mouseDragged, instead of handing the drag to the window server (isMovableByWindowBackground). A drag the window server runs is what the system's window tiling watches:
+    /// dropped against the top of the screen (where the panel docks) it filled the screen with the panel, or moved a panel it could not resize (collapsed) to the middle of the screen.
+    /// Moved by its own frame, the panel is just a window changing its origin, and nothing else. The top stays below the menu bar, as the window server keeps dragged windows (the dock's
+    /// top edge is that line, see EdgeDock.dragEnded); the dock sees the moves with the button down and takes over when it comes up, as before.
+    override func mouseDown(with event: NSEvent) {
+        guard event.type == .leftMouseDown else { super.mouseDown(with: event); return }
+        drag = (NSEvent.mouseLocation, frame.origin)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let drag else { super.mouseDragged(with: event); return }
+        let mouse = NSEvent.mouseLocation
+        var origin = NSPoint(x: drag.origin.x + mouse.x - drag.mouse.x, y: drag.origin.y + mouse.y - drag.mouse.y)
+        if let s = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? screen ?? NSScreen.main {
+            origin.y = min(origin.y, s.visibleFrame.maxY - frame.height)
+        }
+        setFrameOrigin(origin)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if drag != nil { drag = nil } else { super.mouseUp(with: event) }
+    }
+
+    /// Sets the frame from the panel's own code; the size becomes the panel's own. Every resize the panel makes goes through here (the dock only moves it).
+    func setOwnFrame(_ f: NSRect, display: Bool) {
+        resizingSelf = true
+        setFrame(f, display: display)
+        resizingSelf = false
+        ownSize = frame.size
+    }
+
+    /// A size the panel did not choose: dragged against the top edge of the screen (where it docks), the system's window tiling fills the screen with the window, and the tiling shortcuts tile it;
+    /// a panel the size of the screen is never wanted, and docked, its far edges are off the screen where no drag can shrink it back. So the size is put back, top left corner fixed.
+    /// The user's own resize (a live resize, or any change while the mouse button is down) and the panel's (resizingSelf) pass; only a resize with the button up and nobody's name on it is undone.
+    /// A point or two is AppKit rounding the frame to pixels while a slide moves it (the collapsed slab's fitted size is fractional), the panel's own as well, or the undo would fight the slide.
+    private func undoOutsideResize() -> Bool {
+        guard !resizingSelf, !inLiveResize, ownSize.width > 0, frame.size != ownSize else { return false }
+        if NSEvent.pressedMouseButtons != 0 || (abs(frame.width - ownSize.width) <= 2 && abs(frame.height - ownSize.height) <= 2) {
+            ownSize = frame.size
+            return false
+        }
+        Log.write("Resized from outside to \(NSStringFromSize(frame.size)), back to \(NSStringFromSize(ownSize))")
+        setOwnFrame(NSRect(x: frame.minX, y: frame.maxY - ownSize.height, width: ownSize.width, height: ownSize.height), display: true)
+        return true
+    }
+
+    /// No larger than the screen's visible frame: larger, the panel's edges are off the screen where no resize can reach them.
+    private func clipped(_ size: NSSize) -> NSSize {
+        guard let v = (screen ?? NSScreen.main)?.visibleFrame.size else { return size }
+        return NSSize(width: min(size.width, v.width), height: min(size.height, v.height))
+    }
 
     /// The system keeps windows below the menu bar by default, so dragging to the top of the screen "sticks"; the floating panel may reach the top edge.
     /// Docked at the top edge the frame is the dock's business and not constrained at all, unless the mouse is dragging the window: tucked, the panel sits above the screen but for its strip,
@@ -105,6 +180,8 @@ final class FloatingPanel: NSPanel {
     /// Collapse / expand, top left corner fixed. Collapsing sizes the window to the content and shrinks it once the collapse animation is over; expanding grows it to the panel size at once
     /// (the extra area is transparent and click-through, invisible) and the panel glass then grows out of the slab.
     func setCompact(_ compact: Bool, animated: Bool = true) {
+        resizingSelf = true                 // setting minSize resizes the window by itself; all of this is the panel's own doing
+        defer { resizingSelf = false; ownSize = frame.size }
         if compact {
             rememberExpandedSize()
             styleMask.remove(.resizable)
@@ -118,8 +195,9 @@ final class FloatingPanel: NSPanel {
             styleMask.insert(.resizable)
             applyChrome()
             minSize = FloatingPanel.expandedMin
-            let size = NSSize(width: max(expandedSize.width, FloatingPanel.expandedMin.width),
-                              height: max(expandedSize.height, FloatingPanel.expandedMin.height))
+            let fit = clipped(expandedSize)
+            let size = NSSize(width: max(fit.width, FloatingPanel.expandedMin.width),
+                              height: max(fit.height, FloatingPanel.expandedMin.height))
             var f = NSRect(x: frame.minX, y: frame.maxY - size.height, width: size.width, height: size.height)
             if let v = (screen ?? NSScreen.main)?.frame {   // stay on screen
                 f.origin.x = min(max(f.origin.x, v.minX), v.maxX - f.width)
@@ -133,7 +211,7 @@ final class FloatingPanel: NSPanel {
     /// Remember the size while the window is the expanded panel (not when launching at the collapsed size: that is always smaller than the panel's minimum).
     private func rememberExpandedSize() {
         guard frame.width >= FloatingPanel.expandedMin.width, frame.height >= FloatingPanel.expandedMin.height else { return }
-        expandedSize = frame.size
+        expandedSize = clipped(frame.size)
     }
 
     /// The mask geometry, reported by RootView every frame: the plate's current rect (root view coordinates) and the ear. See FirstMouseHostingView.setMask.
@@ -144,7 +222,7 @@ final class FloatingPanel: NSPanel {
 }
 
 /// When the panel is not the key window the first click also goes straight to SwiftUI instead of only making the window key;
-/// pressing on empty space (not a button / text field) drags the whole window (a borderless window has no title bar to drag).
+/// pressing on empty space (not a button / text field) falls through to the window, which drags itself (a borderless window has no title bar to drag), see FloatingPanel.mouseDown.
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     /// The mask geometry, reported by RootView every frame (mid-animation SwiftUI values): the plate's current rect (root view coordinates, spanning the ear's column) and the ear.
     /// The mask has no animation of its own and follows every frame, so the corners always sit on the plate's corners: if the mask clipped to the window size while the plate shrinks / grows,
@@ -203,13 +281,15 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
         guard let w = window,
               abs(w.frame.width - size.width) > 0.5 || abs(w.frame.height - size.height) > 0.5 else { return }
         fitting = true
-        w.setFrame(NSRect(x: w.frame.minX, y: w.frame.maxY - size.height, width: size.width, height: size.height), display: true)
+        let f = NSRect(x: w.frame.minX, y: w.frame.maxY - size.height, width: size.width, height: size.height)
+        if let panel = w as? FloatingPanel { panel.setOwnFrame(f, display: true) } else { w.setFrame(f, display: true) }
         w.invalidateShadow()
         fitting = false
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override var mouseDownCanMoveWindow: Bool { true }
+    /// Not the window server's drag (see FloatingPanel.mouseDown).
+    override var mouseDownCanMoveWindow: Bool { false }
 
     /// The mouse entered / left the window (its glass: the window server does not route the mouse over transparent pixels). Independent of SwiftUI's hover, for the window's docking.
     var onHover: ((Bool) -> Void)?

@@ -111,6 +111,10 @@ struct TodoCard: View {
             Button("Timer / Date…") { showDue = true }
             if todo.due != nil { Button("Remove Time") { store.setDue(nil, for: todo.id) } }
             Divider()
+            // Copy puts the title and notes on the clipboard; Duplicate makes a second to-do right below this one, binding and time included.
+            Button("Copy") { coordinator.copy(todo) }
+            Button("Duplicate") { store.duplicate(todo.id) }
+            Divider()
             Button(todo.isDone ? "Mark as Not Done" : "Mark as Done") { store.toggleDone(todo.id) }
             Button("Delete", role: .destructive) { store.delete(todo.id) }
         }

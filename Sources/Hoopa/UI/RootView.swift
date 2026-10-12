@@ -238,6 +238,8 @@ struct ExpandedView: View {
     @State private var confirmDeleteAll = false
     /// Sort by time (remembered). Only the display order: switched off, the list returns to its own order.
     @AppStorage("sortByTime") private var sortByTime = false
+    /// The collapsed slab's row count (see CompactView.rowsKey), set from the ⋯ menu.
+    @AppStorage(CompactView.rowsKey) private var compactRows = CompactView.defaultRows
     private static let reorder = Animation.smooth(duration: 0.3)
 
     var body: some View {
@@ -309,6 +311,10 @@ struct ExpandedView: View {
                     get: { coordinator.dockAutoHide },
                     set: { coordinator.setDockAutoHide($0) }))
                 Toggle("Show Completed", isOn: $showDone)
+                // How many rows the collapsed slab shows before the list scrolls (see CompactView). Also in the menu bar menu.
+                Picker("Rows When Collapsed", selection: $compactRows) {
+                    ForEach(CompactView.rowChoices, id: \.self) { n in Text("\(n) rows").tag(n) }
+                }
                 // The system's own login item state (see LoginItem); a failure or a pending approval is reported in the toast.
                 Toggle("Launch at Login", isOn: Binding(
                     get: { launchAtLogin },

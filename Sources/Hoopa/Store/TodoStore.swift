@@ -50,6 +50,20 @@ final class TodoStore: ObservableObject {
         return item
     }
 
+    /// Duplicate: a copy of the to-do right below it, with the same title, notes, binding and time, not done, under its own id and a fresh stamp.
+    /// Counts as a reorder, so the copy sits next to its original on the other Macs as well (a to-do only one copy has would otherwise land on top).
+    @discardableResult
+    func duplicate(_ id: UUID) -> TodoItem? {
+        guard let idx = todos.firstIndex(where: { $0.id == id }) else { return nil }
+        let source = todos[idx]
+        let copy = TodoItem(title: source.title, notes: source.notes, binding: source.binding, due: source.due, stamp: clock.now())
+        todos.insert(copy, at: idx + 1)
+        orderedAt = clock.now()
+        Notifier.schedule(copy)
+        scheduleSave()
+        return copy
+    }
+
     /// A changed time records a new set-at moment: the time ring's first lap starts full from now.
     func setDue(_ due: Due?, for id: UUID) {
         mutate(id) { $0.due = due; $0.dueSetAt = due == nil ? nil : Date() }

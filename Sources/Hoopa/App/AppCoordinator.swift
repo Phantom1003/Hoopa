@@ -95,6 +95,14 @@ final class AppCoordinator: ObservableObject {
         }
     }
 
+    /// Copy (the right-click menus): the to-do's title and notes as plain text on the clipboard, for pasting into another app.
+    func copy(_ todo: TodoItem) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(todo.clipboardText, forType: .string)
+        showToast(String(localized: "Copied"))
+    }
+
     func showToast(_ text: String, seconds: Double = 2.5) {
         toastToken += 1
         let token = toastToken

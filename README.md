@@ -45,7 +45,8 @@ click.
   it jumps to the bound page.
 - **A collapsed mini list.** One click on the ear at the panel's left edge
   shrinks it to a glass slab with one row per to-do: a ball (the app's icon
-  with a time ring around it), the title and the countdown.
+  with a time ring around it), the title and the countdown. Three rows by
+  default (a setting), longer lists scroll inside.
 - **Sort by time or by hand.** Timed to-dos soonest first, grouped into
   Overdue, Today, Tomorrow, Later and Unscheduled, or drag the cards into
   your own order.

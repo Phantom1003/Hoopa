@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         UNUserNotificationCenter.current().delegate = self
 
+        setupMainMenu()
         setupStatusItem()
         setupHotkey()
         panel.show()
@@ -85,6 +86,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
         }
         completionHandler()
+    }
+
+    // MARK: Edit menu
+
+    /// A menu bar app has no menu bar, but ⌘Z / ⌘X / ⌘C / ⌘V / ⌘A in a text field are the Edit menu's key equivalents: AppKit only honours them when a main menu holds them.
+    /// So the app gets a main menu nobody sees, with the standard Edit items aimed at the first responder (the field being edited).
+    private func setupMainMenu() {
+        let edit = NSMenu(title: "Edit")
+        func item(_ title: String, _ action: Selector, _ key: String, _ modifiers: NSEvent.ModifierFlags = .command) {
+            edit.addItem(withTitle: title, action: action, keyEquivalent: key).keyEquivalentModifierMask = modifiers
+        }
+        item("Undo", Selector(("undo:")), "z")
+        item("Redo", Selector(("redo:")), "z", [.command, .shift])
+        edit.addItem(.separator())
+        item("Cut", #selector(NSText.cut(_:)), "x")
+        item("Copy", #selector(NSText.copy(_:)), "c")
+        item("Paste", #selector(NSText.paste(_:)), "v")
+        item("Select All", #selector(NSText.selectAll(_:)), "a")
+        let main = NSMenu()
+        let app = main.addItem(withTitle: "Hoopa", action: nil, keyEquivalent: "")
+        app.submenu = NSMenu(title: "Hoopa")
+        main.addItem(withTitle: "Edit", action: nil, keyEquivalent: "").submenu = edit
+        NSApp.mainMenu = main
     }
 
     // MARK: Menu bar
@@ -159,6 +183,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         toggle(String(localized: "Keep Panel on Top"), coordinator.alwaysOnTop, #selector(toggleAlwaysOnTop), in: menu)
         toggle(String(localized: "Launch at Login"), LoginItem.enabled, #selector(toggleLaunchAtLogin), in: menu)
+        // How many rows the collapsed slab shows before the list scrolls (see CompactView); the one in use is ticked.
+        let rows = NSMenu()
+        for n in CompactView.rowChoices {
+            let item = rows.addItem(withTitle: String(localized: "\(n) rows"), action: #selector(setCompactRows(_:)), keyEquivalent: "")
+            item.representedObject = n
+            item.state = n == CompactView.storedRows ? .on : .off
+        }
+        menu.addItem(withTitle: String(localized: "Rows When Collapsed"), action: nil, keyEquivalent: "").submenu = rows
         // Language names are not translated; switching relaunches the app.
         let language = NSMenu()
         for l in AppLanguage.allCases {
@@ -186,7 +218,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         toggle(String(localized: "Check for Updates Automatically"), updater.automatic, #selector(toggleAutoUpdate), in: menu)
         menu.addItem(withTitle: String(localized: "Check for Updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
         menu.autoenablesItems = false
-        for m in [menu, language, sync] { m.items.forEach { $0.target = self } }
+        for m in [menu, rows, language, sync] { m.items.forEach { $0.target = self } }
         return menu
     }
 
@@ -196,6 +228,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
     @objc private func toggleLaunchAtLogin() {
         if let message = LoginItem.set(!LoginItem.enabled) { coordinator.showToast(message, seconds: 5) }
+    }
+    /// The collapsed slab reads the preference itself (@AppStorage) and resizes.
+    @objc private func setCompactRows(_ sender: NSMenuItem) {
+        if let n = sender.representedObject as? Int { UserDefaults.standard.set(n, forKey: CompactView.rowsKey) }
     }
     @objc private func switchLanguage(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let l = AppLanguage(rawValue: raw) { AppLanguage.switchTo(l) }

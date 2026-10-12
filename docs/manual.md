@@ -36,13 +36,18 @@ The panel is a floating, non-activating window: it stays above your other
 windows (switch *Keep Panel on Top* off in the ⋯ menu to let it fall behind),
 follows you to every Space, and takes clicks without becoming the active app,
 so the window you are working in keeps the keyboard. Drag it by any empty
-area; the expanded panel can be resized and remembers its frame.
+area; the expanded panel can be resized and remembers its frame. It has no
+full screen mode, and the system's window tiling never gets hold of it:
+the panel moves itself when dragged, so dropping it against the top of
+the screen docks it (see [Hiding at the screen
+edge](#hiding-at-the-screen-edge)) instead of filling the screen with it.
 
 Show or hide it with **⌃⌥T** or a left click on the menu bar icon. A right
 click on the icon gives a menu with *Show/Hide Panel*, *Expand/Collapse*,
 *Hide at the Screen Edge* (see [Hiding at the screen
 edge](#hiding-at-the-screen-edge)), a *Settings* submenu with the settings
-of the ⋯ menu (on top, login item, language, sync, Accessibility, updates)
+of the ⋯ menu (on top, login item, rows when collapsed, language, sync,
+Accessibility, updates)
 and *Quit*.
 
 ### Hiding at the screen edge
@@ -60,7 +65,7 @@ mouse can reach it. At the left edge the ear moves to the panel's right
 side, so the panel itself is flush with the screen edge, square corners
 included. The strip is not blank: it carries the countdown of the first
 timed to-do as a bar along the edge, the time ring laid out straight (same
-colours, the track showing the next band, solid red once overdue), so the
+colours, the track showing the next band; once overdue a gold warning tape whose black stripes slowly flicker and swell), so the
 time stays in view while the panel is away. At the left and right edges the
 bar drains towards the bottom; under the menu bar it burns in from both
 ends towards the middle. "First" follows the list's order: with ⇅ on it is
@@ -111,9 +116,13 @@ Each to-do is a card:
 
 Click a card to open its details: the title and the notes become editable and
 save as you type. Click an empty spot in the list, or press Esc, to close
-them. The right-click menu has everything as well: *Jump to Bound Page*,
+them. The usual editing shortcuts work in both fields (⌘Z, ⌘X, ⌘C, ⌘V, ⌘A).
+The right-click menu has everything as well: *Jump to Bound Page*,
 *Rebind…*, *Unbind* (or *Bind to Window / Page…*), *Timer / Date…*, *Remove
-Time*, *Mark as Done* and *Delete*.
+Time*, *Copy*, *Duplicate*, *Mark as Done* and *Delete*. *Copy* puts the title
+and the notes on the clipboard as plain text, for pasting into another app;
+*Duplicate* makes a second to-do right below this one with the same title,
+notes, binding and time.
 
 Drag a card onto another one to reorder: the upper half of the target inserts
 before it, the lower half after.
@@ -129,21 +138,34 @@ the panel docked at the left edge of the screen (see [Hiding at the screen
 edge](#hiding-at-the-screen-edge)) the ear is outside the right edge instead.
 
 Collapsed, the panel is a narrow glass slab with one row per to-do, in the
-same order as the panel (your order, or by time when ⇅ is on), at most six
-rows and then "N more" (click it to expand):
+same order as the panel (your order, or by time when ⇅ is on). The slab
+shows three rows; a longer list scrolls inside that height. Each notch of
+the mouse wheel moves it exactly one row, however fast the wheel spins (the
+system's wheel acceleration would throw a three-row list several rows on);
+a trackpad moves it by the distance of your fingers, and it settles on a
+whole row when they stop. A thin indicator in the right margin shows where
+you are while scrolling. *Rows When Collapsed* in the ⋯ menu (or the menu
+bar icon's *Settings* submenu) makes it 3, 5, 8 or 12 rows tall. Each row:
 
 * **The ball** is the to-do's head: the bound app's icon on a grey disc, or a
   fuzzy ball with the title's first letter when nothing is bound. A to-do
   with a time gets a ring around it that works like a boss's stacked health
-  bars. The time left is cut into bands: more than a week, a week, a day, an
-  hour, ten minutes, five minutes and the last minute. Each band is one full
-  lap of the ring in its own colour (blue, cyan, mint, green, yellow, orange,
-  red), and when a lap runs out the ring starts the next one full, so a
-  timer's last minutes are as visible as its first hour. The track under the
-  arc shows the next band's colour, the bar that is still to come. The first
-  lap starts full when the time is set: an hour's timer begins green, a date
-  next week begins cyan. An unbound ball takes the ring's colour. Once the
-  time has passed the ring is solid red.
+  bars. The time left is cut into bands: a month, a week, a day, an hour,
+  ten minutes and the last minute. Each band is one full lap of the ring in
+  its own colour (blue, cyan, mint, green, orange, red), and when a lap runs
+  out the ring starts the next one full, so a timer's last minutes are as
+  visible as its first hour. The track under the arc shows the next band's
+  colour, the bar that is still to come. The laps have fixed lengths, so the
+  ring reads the same on every row: two to-dos with three days left show
+  the same mint arc, whenever each was set; an hour's timer begins with a
+  full green lap, a date three weeks out two thirds into the blue one, and
+  beyond a month the blue ring is full. An unbound ball takes the ring's
+  colour. Once the time has passed the to-do falls through one of Hoopa's
+  rings: the ring turns gold, the disc opens into a hyperspace hole (purple,
+  near black at the centre, with lilac, blue and violet eddies forever
+  tumbling in from the rim, wilder as they near the drain), and the icon is sucked in and
+  surfaces again small and dim at the bottom. With Reduce Motion on the hole stands still and the
+  icon is simply shown sunk.
 * **The title**, one line. The ball's icon is all the row says about the
   binding; the page name is on the chip in the expanded panel.
 * **The countdown** at the right edge: orange in the last ten minutes, red
@@ -153,8 +175,8 @@ rows and then "N more" (click it to expand):
 Click a row and the panel expands with that to-do's details open. Point at a
 row and ○ appears at its right end, where the countdown was: click it to mark
 the to-do done. The ball stays the to-do's head and is not a button. The
-right-click menu offers *Jump to Bound Page*, *Mark as Done*, *Expand* and
-*Quit*. When there are no to-dos at all, the slab shows a single "+ Add a
+right-click menu offers *Jump to Bound Page*, *Mark as Done*, *Copy*,
+*Duplicate*, *Expand* and *Quit*. When there are no to-dos at all, the slab shows a single "+ Add a
 to-do" row that expands the panel with the composer open.
 
 The panel starts in whichever state it was left in.
@@ -254,7 +276,7 @@ The ◔ button and the *Timer / Date…* menu item open the time picker:
 The time chip shows the countdown in its two largest units (`1d 03h`,
 `20h 00m`, `4m 10s`) followed by the absolute time (`14:30`, or `Tomorrow
 14:30`). The countdown is in the colour of the to-do's time ring (blue beyond
-a week, then cyan, mint, green, yellow, orange, red in the last minute), and
+a week, then cyan, mint, green, orange, red in the last minute), and
 red with `Overdue` once the time has passed; the absolute time stays grey.
 
 At the moment itself Hoopa posts a system notification with the to-do's title
@@ -470,7 +492,7 @@ downloaded copy.
 * Preferences (`local.phantom.hoopa`): the panel frame, the collapsed state,
   the screen edge the panel is docked at (`dock`: `left`, `right` or `top`)
   and whether a docked panel hides (`dockAutoHide`, on unless set),
-  the sort setting, the interface language, whether updates are checked
+  the collapsed list's row count (`compactRows`, 3 unless set), the sort setting, the interface language, whether updates are checked
   automatically, the sync folder (`syncFolder`, a path; the iCloud Drive
   folder's path stands for *iCloud Drive*) and the sync clock (`syncNode`,
   this Mac's id in change stamps; `syncClock` and `syncCounter`, the last
