@@ -267,9 +267,12 @@ off, and otherwise sets only Electron's own `AXManualAccessibility`.
 The ◔ button and the *Timer / Date…* menu item open the time picker:
 
 * **Timer**: a dial and the presets 5, 10, 15, 25, 45 and 60 minutes. The
-  dial sets the minutes (up to 120) or the seconds: click `min` or `sec` in
-  its middle to choose which, then drag on the ring. On a new to-do the timer
-  starts when the to-do is added; on an existing one, when you press *Set*.
+  dial sets the minutes (0 to 120) or the seconds: click `min` or `sec` in
+  its middle to choose which, then drag on the ring. The minute ring stops at
+  its ends: dragging past the top keeps 0 (or 120) rather than jumping to the
+  other, so a timer of seconds alone is set by turning the minutes down to 0.
+  On a new to-do the timer starts when the to-do is added; on an existing
+  one, when you press *Set*.
 * **Date & Time**: today, tomorrow, the day after (or any day from the
   calendar) and a clock dial.
 

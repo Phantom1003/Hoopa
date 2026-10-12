@@ -15,9 +15,11 @@ private enum DialGeometry {
 
 /// The countdown dial: "25 : 00" in the middle, click the minutes or the seconds to choose which the dial sets, drag on the ring to choose.
 /// Minutes: 0–120, a figure every 10; seconds: 0–59, a figure every 5. The arc is the chosen share of the active ring. At least one second, at most 120 minutes.
+/// 0 and 120 minutes share the top of the ring, so the minute ring does not wrap there: a drag past the top stays at the end it came from (0 or 120) until it turns back.
 struct CountdownDial: View {
     @Binding var seconds: Int       // the whole length, 1…maxSeconds
     @State private var pickingMinutes = true
+    @State private var minuteDrag: (raw: Double, unwrapped: Double)?   // one drag on the minute ring: the last raw angle and the angle followed across the top without wrapping
     static let maxSeconds = 120 * 60
     private let size: CGFloat = 170
 
@@ -56,11 +58,22 @@ struct CountdownDial: View {
                 // The readout in the middle is for clicking, not for dragging: a click there must not turn the ring to a random angle.
                 guard hypot(g.location.x - c.x, g.location.y - c.y) >= r * 0.65 else { return }
                 let a = DialGeometry.angle(of: g.location, center: c)
-                let chosen = pickingMinutes
-                    ? Int((a / 360 * 120).rounded()) * 60 + secondPart
-                    : minutePart * 60 + Int((a / 6).rounded()) % 60
+                let chosen: Int
+                if pickingMinutes {
+                    // Follow the pointer by its turn since the last event (the short way round), so passing the top adds up past 360 or below 0 instead of jumping to the other end; the minutes read the clamped lap.
+                    var unwrapped = a
+                    if let last = minuteDrag {
+                        var delta = a - last.raw
+                        if delta > 180 { delta -= 360 } else if delta < -180 { delta += 360 }
+                        unwrapped = last.unwrapped + delta
+                    }
+                    minuteDrag = (a, unwrapped)
+                    chosen = Int((max(0, min(360, unwrapped)) / 3).rounded()) * 60 + secondPart
+                } else {
+                    chosen = minutePart * 60 + Int((a / 6).rounded()) % 60
+                }
                 seconds = max(1, min(Self.maxSeconds, chosen))
-            })
+            }.onEnded { _ in minuteDrag = nil })
         }
         .frame(width: size, height: size)
     }
