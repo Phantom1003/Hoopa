@@ -295,19 +295,23 @@ final class TodoStore: ObservableObject {
             if data == nil { Log.write("Sync: no file in the folder yet, writing ours") }
             s.lastData = data
             s.blocked = false
-            DispatchQueue.main.async { self?.apply(docs) }
+            DispatchQueue.main.async { self?.apply(docs, folderCopy: data == nil ? nil : docs.first) }
         }
     }
 
-    /// Merges the copies read from the sync folder. Anything new here is saved like any other change (the local file, then the folder copy);
-    /// otherwise our copy may still hold more than the file (to-dos made while offline, deletions the other Mac has not seen), so it is offered
-    /// to the folder, where the write compares and skips when equal.
-    private func apply(_ docs: [TodoDocument]) {
+    /// Merges the copies read from the sync folder (`folderCopy`: the file itself, nil when there was none). Anything new here is saved like any other
+    /// change (the local file, then the folder copy); otherwise our copy may still hold more than the file (to-dos made while offline, deletions the
+    /// other Mac has not seen) and is written over it. Holding nothing the file lacks, ours is not written: the bytes can differ all the same (another
+    /// version of the app writes the same to-dos in another shape), and writing them would only make that Mac write its shape back, every few seconds,
+    /// for as long as both run.
+    private func apply(_ docs: [TodoDocument], folderCopy: TodoDocument?) {
         let before = document
         for doc in docs { merge(doc) }
         if document != before {
             Log.write("Sync: merged in \(docs.count) cop\(docs.count == 1 ? "y" : "ies"), \(todos.count) to-do(s) now")
             scheduleSave()
+        } else if let folderCopy, Self.merge(folderCopy, document) == folderCopy {
+            Log.write("Sync: the copy in the folder holds everything here, not writing")
         } else {
             scheduleSyncWrite()
         }
