@@ -13,44 +13,69 @@ private enum DialGeometry {
     }
 }
 
-/// The countdown dial: drag to set 1–120 minutes, the scroll wheel fine-tunes; the minutes show in the middle.
+/// The countdown dial: "25 : 00" in the middle, click the minutes or the seconds to choose which the dial sets, drag on the ring to choose.
+/// Minutes: 0–120, a figure every 10; seconds: 0–59, a figure every 5. The arc is the chosen share of the active ring. At least one second, at most 120 minutes.
 struct CountdownDial: View {
-    @Binding var minutes: Int
-    let maxMinutes = 120
+    @Binding var seconds: Int       // the whole length, 1…maxSeconds
+    @State private var pickingMinutes = true
+    static let maxSeconds = 120 * 60
     private let size: CGFloat = 170
+
+    private var minutePart: Int { seconds / 60 }
+    private var secondPart: Int { seconds % 60 }
 
     var body: some View {
         GeometryReader { geo in
             let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             let r = min(geo.size.width, geo.size.height) / 2 - 10
-            let angle = Double(minutes) / Double(maxMinutes) * 360
+            let share = pickingMinutes ? Double(minutePart) / 120 : Double(secondPart) / 60
             ZStack {
                 Circle().stroke(Style.chip, lineWidth: 6).frame(width: r * 2, height: r * 2)
                 Circle()
-                    .trim(from: 0, to: CGFloat(minutes) / CGFloat(maxMinutes))
+                    .trim(from: 0, to: CGFloat(share))
                     .stroke(Style.accent.opacity(0.55), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .frame(width: r * 2, height: r * 2)
-                ForEach(1...12, id: \.self) { i in
-                    let a = Double(i) / 12 * 360
-                    Text("\(i * 10)")
-                        .font(.system(size: 9)).foregroundStyle(Style.tertiary)
+                ForEach(0..<12, id: \.self) { i in
+                    // Minutes: 10 … 120 clockwise from one o'clock (120 at the top); seconds: 00 … 55 from the top.
+                    let a = Double(pickingMinutes ? i + 1 : i) / 12 * 360
+                    Text(pickingMinutes ? "\((i + 1) * 10)" : String(format: "%02d", i * 5))
+                        .font(.system(size: 9)).monospacedDigit().foregroundStyle(Style.tertiary)
                         .position(DialGeometry.point(angle: a, radius: r - 16, center: c))
                 }
                 Circle().fill(Color.clear).frame(width: 18, height: 18).tintedGlass(Circle())
-                    .position(DialGeometry.point(angle: angle, radius: r, center: c))
-                VStack(spacing: 0) {
-                    Text("\(minutes)").font(.system(size: 30, weight: .semibold, design: .rounded)).monospacedDigit()
-                    Text("min").font(.system(size: 11)).foregroundStyle(Style.secondary)
+                    .position(DialGeometry.point(angle: share * 360, radius: r, center: c))
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    digit(String(format: "%02d", minutePart), unit: "min", active: pickingMinutes) { pickingMinutes = true }
+                    Text(":").font(.system(size: 22, weight: .semibold, design: .rounded)).foregroundStyle(Style.secondary)
+                    digit(String(format: "%02d", secondPart), unit: "sec", active: !pickingMinutes) { pickingMinutes = false }
                 }
             }
             .contentShape(Circle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { g in
+                // The readout in the middle is for clicking, not for dragging: a click there must not turn the ring to a random angle.
+                guard hypot(g.location.x - c.x, g.location.y - c.y) >= r * 0.65 else { return }
                 let a = DialGeometry.angle(of: g.location, center: c)
-                minutes = max(1, min(maxMinutes, Int((a / 360 * Double(maxMinutes)).rounded())))
+                let chosen = pickingMinutes
+                    ? Int((a / 360 * 120).rounded()) * 60 + secondPart
+                    : minutePart * 60 + Int((a / 6).rounded()) % 60
+                seconds = max(1, min(Self.maxSeconds, chosen))
             })
         }
         .frame(width: size, height: size)
+    }
+
+    /// One number of the "25 : 00" readout with its unit under it; the active one is tinted (it is what the ring sets), a click makes it the active one.
+    private func digit(_ s: String, unit: LocalizedStringKey, active: Bool, _ tap: @escaping () -> Void) -> some View {
+        VStack(spacing: 0) {
+            Text(s).font(.system(size: 22, weight: .semibold, design: .rounded)).monospacedDigit()
+                .foregroundStyle(active ? Style.accent : Color.primary)
+            Text(unit).font(.system(size: 10)).foregroundStyle(active ? Style.accent : Style.secondary)
+        }
+        .padding(.horizontal, 4).padding(.vertical, 2)
+        .background(RoundedRectangle(cornerRadius: 6).fill(active ? Style.accent.opacity(0.12) : .clear))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: tap)
     }
 }
 

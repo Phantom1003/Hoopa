@@ -83,11 +83,50 @@ struct ContextBinding: Codable, Equatable {
     }
 }
 
-/// A to-do's time: a countdown (N minutes from when it was set), a plain day, or a moment on a day.
+/// A to-do's time: a countdown (N seconds from when it was set), a plain day, or a moment on a day.
 enum Due: Codable, Equatable {
-    case countdown(end: Date, minutes: Int)
+    case countdown(end: Date, seconds: Int)
     case date(Date)
     case dateTime(Date)
+
+    // Written in the shape the synthesized coding used ({"countdown": {"end": …, "minutes": 25}}) plus "seconds", so a copy from before seconds
+    // (another Mac on the sync folder, an older version after a downgrade) still reads the time; it only sees the whole minutes, the end is exact either way.
+    // "seconds" wins when read; a file without it (older data) counts the minutes.
+    private enum CodingKeys: String, CodingKey { case countdown, date, dateTime }
+    private enum CountdownKeys: String, CodingKey { case end, minutes, seconds }
+    private enum ValueKeys: String, CodingKey { case _0 }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if c.contains(.countdown) {
+            let n = try c.nestedContainer(keyedBy: CountdownKeys.self, forKey: .countdown)
+            let seconds = try n.decodeIfPresent(Int.self, forKey: .seconds) ?? n.decode(Int.self, forKey: .minutes) * 60
+            self = .countdown(end: try n.decode(Date.self, forKey: .end), seconds: seconds)
+        } else if c.contains(.date) {
+            self = .date(try c.nestedContainer(keyedBy: ValueKeys.self, forKey: .date).decode(Date.self, forKey: ._0))
+        } else if c.contains(.dateTime) {
+            self = .dateTime(try c.nestedContainer(keyedBy: ValueKeys.self, forKey: .dateTime).decode(Date.self, forKey: ._0))
+        } else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "not a due time"))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .countdown(let end, let seconds):
+            var n = c.nestedContainer(keyedBy: CountdownKeys.self, forKey: .countdown)
+            try n.encode(end, forKey: .end)
+            try n.encode(max(1, Int((Double(seconds) / 60).rounded())), forKey: .minutes)
+            try n.encode(seconds, forKey: .seconds)
+        case .date(let d):
+            var n = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .date)
+            try n.encode(d, forKey: ._0)
+        case .dateTime(let d):
+            var n = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .dateTime)
+            try n.encode(d, forKey: ._0)
+        }
+    }
 
     var date: Date {
         switch self {
@@ -110,14 +149,14 @@ enum Due: Codable, Equatable {
     }
 }
 
-/// A time setting not yet on a to-do: a countdown only keeps the minutes and starts ticking at the moment of submission.
+/// A time setting not yet on a to-do: a countdown only keeps its length in seconds and starts ticking at the moment of submission.
 enum DueSpec: Equatable {
-    case countdown(minutes: Int)
+    case countdown(seconds: Int)
     case dateTime(Date)
 
     func resolve(now: Date = Date()) -> Due {
         switch self {
-        case .countdown(let m): return .countdown(end: now.addingTimeInterval(TimeInterval(m * 60)), minutes: m)
+        case .countdown(let s): return .countdown(end: now.addingTimeInterval(TimeInterval(s)), seconds: s)
         case .dateTime(let d): return .dateTime(d)
         }
     }
@@ -125,7 +164,7 @@ enum DueSpec: Equatable {
     /// The setting derived back from an existing time (for editing). A plain date counts as 9:00 that day.
     init(_ due: Due) {
         switch due {
-        case .countdown(_, let m): self = .countdown(minutes: m)
+        case .countdown(_, let s): self = .countdown(seconds: s)
         case .dateTime(let d): self = .dateTime(d)
         case .date(let d): self = .dateTime(Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: d) ?? d)
         }

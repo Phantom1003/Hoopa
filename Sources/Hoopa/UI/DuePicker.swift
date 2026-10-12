@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The popover for setting a countdown / date-time (buttons and dials in the Liquid Glass style).
-/// A chosen countdown only keeps the minutes; ticking starts at the moment of submission.
+/// A chosen countdown only keeps its length; ticking starts at the moment of submission.
 struct DuePicker: View {
     @Binding var spec: DueSpec?
     var onDone: () -> Void
@@ -11,11 +11,11 @@ struct DuePicker: View {
         var title: LocalizedStringKey { self == .countdown ? "Timer" : "Date & Time" }
     }
     @State private var tab: Tab = .countdown
-    @State private var minutes = 25
+    @State private var seconds = 25 * 60
     @State private var day = Calendar.current.startOfDay(for: Date())
     @State private var hour = Calendar.current.component(.hour, from: Date())
     @State private var minute = Calendar.current.component(.minute, from: Date())
-    private let presets = [5, 10, 15, 25, 45, 60]
+    private let presets = [5, 10, 15, 25, 45, 60]     // minutes
     @State private var showCalendar = false
 
     var body: some View {
@@ -27,11 +27,11 @@ struct DuePicker: View {
             .labelsHidden()
 
             if tab == .countdown {
-                CountdownDial(minutes: $minutes)
+                CountdownDial(seconds: $seconds)
                 HStack(spacing: 6) {
                     ForEach(presets, id: \.self) { m in
-                        Button { minutes = m } label: { Text("\(m)").monospacedDigit().frame(maxWidth: .infinity) }
-                            .glassButton(prominent: minutes == m)
+                        Button { seconds = m * 60 } label: { Text("\(m)").monospacedDigit().frame(maxWidth: .infinity) }
+                            .glassButton(prominent: seconds == m * 60)
                             .controlSize(.small)
                     }
                 }
@@ -71,7 +71,12 @@ struct DuePicker: View {
                 Spacer()
                 Button(action: apply) {
                     ViewThatFits(in: .horizontal) {
-                        Text(tab == .countdown ? "Set \(minutes) min" : "Set \(TimeFormat.day(day, now: Date())) \(String(format: "%02d:%02d", hour, minute))")
+                        // A timer of whole minutes reads "Set 25 min", one with seconds in the chip's form, "Set 4m 30s".
+                        if tab == .countdown {
+                            if seconds % 60 == 0 { Text("Set \(seconds / 60) min") } else { Text("Set \(TimeFormat.duration(seconds))") }
+                        } else {
+                            Text("Set \(TimeFormat.day(day, now: Date())) \(String(format: "%02d:%02d", hour, minute))")
+                        }
                         Text("Set")
                     }
                     .monospacedDigit()
@@ -86,7 +91,7 @@ struct DuePicker: View {
         .frame(width: 280)
         .onAppear {
             switch spec {
-            case .countdown(let m): minutes = m; tab = .countdown
+            case .countdown(let s): seconds = s; tab = .countdown
             case .dateTime(let d):
                 tab = .dateTime
                 day = Calendar.current.startOfDay(for: d)
@@ -99,7 +104,7 @@ struct DuePicker: View {
 
     private func apply() {
         switch tab {
-        case .countdown: spec = .countdown(minutes: minutes)
+        case .countdown: spec = .countdown(seconds: seconds)
         case .dateTime: spec = .dateTime(Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day)
         }
         onDone()
@@ -116,19 +121,19 @@ struct DuePicker: View {
     }
 }
 
-/// A time setting not yet submitted (a countdown does not tick, it only shows the minutes).
+/// A time setting not yet submitted (a countdown does not tick, it only shows its length).
 struct SpecChip: View {
     let spec: DueSpec
     var bare = false
     var body: some View {
         switch spec {
-        case .countdown(let m):
+        case .countdown(let s):
             // Not ticking yet, but a due moment is projected as if submitted now (grey) and refreshes with the current time.
             TimelineView(.periodic(from: .now, by: 15)) { ctx in
                 HStack(spacing: 4) {
-                    Text(TimeFormat.duration(m * 60)).monospacedDigit()
+                    Text(TimeFormat.duration(s)).monospacedDigit()
                     Text("·").foregroundStyle(Style.tertiary)
-                    Text(TimeFormat.absolute(ctx.date.addingTimeInterval(TimeInterval(m * 60)), now: ctx.date))
+                    Text(TimeFormat.absolute(ctx.date.addingTimeInterval(TimeInterval(s)), now: ctx.date))
                         .monospacedDigit().foregroundStyle(Style.secondary)
                 }
                 .foregroundStyle(Style.text)

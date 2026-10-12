@@ -77,6 +77,9 @@
 "Date & Time" = "日期时间";
 "Cancel" = "取消";
 "Set %lld min" = "选用 %lld min";
+"Set %@" = "选用 %@";
+"min" = "min";
+"sec" = "sec";
 "Set %@ %@" = "选用 %@ %@";
 "Set" = "选用";
 
