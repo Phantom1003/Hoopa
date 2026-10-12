@@ -76,14 +76,18 @@ extension View {
     func glass<S: Shape>(_ shape: S) -> some View { modifier(GlassBackground(shape: shape)) }
 }
 
-/// Drag the window by pressing on empty space (a borderless window has no title bar). macOS 15+ uses the system's WindowDragGesture.
+/// Drag the window by pressing on empty space (a borderless window has no title bar). Not the system's WindowDragGesture: that hands the drag to the window server, whose window tiling
+/// then fills the screen with the panel when it is dropped against the top edge (where Hoopa docks it). The panel moves itself instead, see FloatingPanel's Dragging section.
+/// A plain gesture: controls inside the content (buttons, fields, the dials' own drags) take precedence, as they did with WindowDragGesture.
 struct WindowDraggable: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content.gesture(WindowDragGesture())
-        } else {
-            content
-        }
+        content.gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .onChanged { _ in
+                guard let panel = FloatingPanel.current else { return }
+                panel.dragBegan()       // the first change is the press itself (minimumDistance 0); a second call does nothing
+                panel.dragMoved()
+            }
+            .onEnded { _ in FloatingPanel.current?.dragEnded() })
     }
 }
 

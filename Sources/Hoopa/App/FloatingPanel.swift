@@ -25,6 +25,8 @@ final class FloatingPanel: NSPanel {
     private var resizingSelf = false
     /// A drag of the panel by its empty space is on: where the mouse and the window were when it started (screen coordinates).
     private var drag: (mouse: NSPoint, origin: NSPoint)?
+    /// The one panel, for the SwiftUI side of the drag (WindowDraggable in UI/Style.swift).
+    private(set) static weak var current: FloatingPanel?
 
     init(contentView: FirstMouseHostingView<AnyView>) {
         hosting = contentView
@@ -67,6 +69,7 @@ final class FloatingPanel: NSPanel {
         }
         dock = EdgeDock(window: self)
         hosting.onHover = { [weak self] inside in self?.dock.hover(inside) }
+        FloatingPanel.current = self
     }
 
     /// Transparent background. Changing styleMask makes AppKit rebuild the window layer, so both have to be applied again.
@@ -83,18 +86,24 @@ final class FloatingPanel: NSPanel {
     override func toggleFullScreen(_ sender: Any?) { Log.write("Full screen ignored") }
     override func zoom(_ sender: Any?) { Log.write("Zoom ignored") }
 
-    /// A press on empty space (nothing in the SwiftUI content took it, so it came down the responder chain to the window) drags the panel; the panel moves itself, by its frame, on every
-    /// mouseDragged, instead of handing the drag to the window server (isMovableByWindowBackground). A drag the window server runs is what the system's window tiling watches:
-    /// dropped against the top of the screen (where the panel docks) it filled the screen with the panel, or moved a panel it could not resize (collapsed) to the middle of the screen.
-    /// Moved by its own frame, the panel is just a window changing its origin, and nothing else. The top stays below the menu bar, as the window server keeps dragged windows (the dock's
-    /// top edge is that line, see EdgeDock.dragEnded); the dock sees the moves with the button down and takes over when it comes up, as before.
-    override func mouseDown(with event: NSEvent) {
-        guard event.type == .leftMouseDown else { super.mouseDown(with: event); return }
+    // MARK: Dragging
+    // The panel moves itself, by its frame, on every mouse move while a press on empty space is held, instead of handing the drag to the window server
+    // (isMovableByWindowBackground, or SwiftUI's WindowDragGesture, which does the same). A drag the window server runs is what the system's window tiling watches: dropped against
+    // the top of the screen (where the panel docks) it filled the screen with the panel, or moved a panel it could not resize (collapsed) to the middle of the screen. Moved by its own frame,
+    // the panel is just a window changing its origin, and nothing else (checked with synthetic drags against the top of the screen: a window-server drag is tiled, a window moving itself is not).
+    // Two ways in: a press the SwiftUI content took with WindowDraggable (UI/Style.swift) reports here through dragBegan / dragMoved / dragEnded; a press nothing took comes down the
+    // responder chain to the window's mouseDown / mouseDragged / mouseUp. The top stays below the menu bar, as the window server keeps dragged windows (the dock's top edge is that line,
+    // see EdgeDock.dragEnded); the dock sees the moves with the button down and takes over when it comes up, as before.
+
+    /// A press that may become a drag: remember where the mouse and the window are. Already dragging (the other way in reported first): nothing.
+    func dragBegan() {
+        guard drag == nil else { return }
         drag = (NSEvent.mouseLocation, frame.origin)
     }
 
-    override func mouseDragged(with event: NSEvent) {
-        guard let drag else { super.mouseDragged(with: event); return }
+    /// The mouse moved with the press held: move the window along.
+    func dragMoved() {
+        guard let drag else { return }
         let mouse = NSEvent.mouseLocation
         var origin = NSPoint(x: drag.origin.x + mouse.x - drag.mouse.x, y: drag.origin.y + mouse.y - drag.mouse.y)
         if let s = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? screen ?? NSScreen.main {
@@ -103,8 +112,19 @@ final class FloatingPanel: NSPanel {
         setFrameOrigin(origin)
     }
 
+    func dragEnded() { drag = nil }
+
+    override func mouseDown(with event: NSEvent) {
+        guard event.type == .leftMouseDown else { super.mouseDown(with: event); return }
+        dragBegan()
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        if drag != nil { dragMoved() } else { super.mouseDragged(with: event) }
+    }
+
     override func mouseUp(with event: NSEvent) {
-        if drag != nil { drag = nil } else { super.mouseUp(with: event) }
+        if drag != nil { dragEnded() } else { super.mouseUp(with: event) }
     }
 
     /// Sets the frame from the panel's own code; the size becomes the panel's own. Every resize the panel makes goes through here (the dock only moves it).
