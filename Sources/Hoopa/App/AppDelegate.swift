@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         panel.onResize = { [weak self] size in self?.coordinator.panelSize = size }
         panel.dock.onSideChange = { [weak self] side in self?.coordinator.dockSide = side }
         coordinator.dockSide = panel.dock.side
+        panel.dock.onTuckChange = { [weak self] tucked in self?.coordinator.dockTucked = tucked }
         coordinator.dockAutoHide = panel.dock.autoHide
         coordinator.onDockAutoHideChanged = { [weak self] on in self?.panel.dock.autoHide = on }
         coordinator.panelSize = panel.frame.size

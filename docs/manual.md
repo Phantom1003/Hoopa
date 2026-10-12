@@ -58,7 +58,14 @@ nothing of the panel ever shows through the (transparent) menu bar, and
 tucked away the panel leaves its strip just under the menu bar, where the
 mouse can reach it. At the left edge the ear moves to the panel's right
 side, so the panel itself is flush with the screen edge, square corners
-included. Rest the mouse on that strip and it slides back. It stays out
+included. The strip is not blank: it carries the countdown of the first
+timed to-do as a bar along the edge, the time ring laid out straight (same
+colours, the track showing the next band, solid red once overdue), so the
+time stays in view while the panel is away. At the left and right edges the
+bar drains towards the bottom; under the menu bar it burns in from both
+ends towards the middle. "First" follows the list's order: with ⇅ on it is
+the to-do due soonest, in your own order the first to-do from the top that
+has a time. Rest the mouse on that strip and it slides back. It stays out
 while the mouse is on it, while a menu or a popover is open or you have just
 typed into it, and slides away again once the mouse goes elsewhere. ⌃⌥T and
 the menu bar icon bring a tucked-away panel out; when the app shows the

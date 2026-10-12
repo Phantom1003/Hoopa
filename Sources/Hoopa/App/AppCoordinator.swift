@@ -35,6 +35,8 @@ final class AppCoordinator: ObservableObject {
     /// The screen edge the panel is docked at (see EdgeDock): the plate runs on past the window's edge on that side, so its corners there are square against the edge;
     /// docked at the left edge the ear moves to the right side of the panel.
     @Published var dockSide: EdgeDock.Side? { didSet { mask.earRight = dockSide == .left } }
+    /// Docked and slid off the screen, only the strip at the edge showing (see EdgeDock.isTucked): the strip carries the first timed to-do's countdown bar.
+    @Published var dockTucked = false
     /// The binding and time "chosen but not yet created" in the composer.
     @Published var pendingBinding: ContextBinding?
     @Published var pendingDue: DueSpec?

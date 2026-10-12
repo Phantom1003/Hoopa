@@ -90,6 +90,12 @@ struct RootView: View {
                     .modifier(EarProbe(extent: earShown ? Ear.width + Ear.radius : 0.5, report: { coordinator.mask.ear = $0 }))
                     .animation(Motion.ear, value: earShown)
                     .allowsHitTesting(false)
+                // Tucked away at a screen edge: the first timed to-do's countdown bar on the strip left on screen, above all content (the strip is otherwise the plate's blank margin).
+                if let side = coordinator.dockSide {
+                    EdgeBar(plate: plate, side: side, shown: coordinator.dockTucked)
+                        .allowsHitTesting(false)
+                        .zIndex(4)
+                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .coordinateSpace(name: "root")     // the slab's rect is reported in this space and the plate is placed by it
@@ -153,6 +159,52 @@ private struct PlateFrame: ViewModifier, Animatable {
             .frame(width: rect.width - overflow.leading - overflow.trailing, height: rect.height - overflow.top,
                    alignment: Alignment(horizontal: overflow.leading > 0 ? .trailing : .leading, vertical: .bottom))
             .offset(x: rect.minX + overflow.leading, y: rect.minY + overflow.top)
+    }
+}
+
+/// Docked and tucked away at a screen edge (see EdgeDock), the strip of the plate left on screen (EdgeDock.peek wide) carries the first timed to-do's countdown as a bar along it (see TimeBar):
+/// the panel is out of sight, the time is not. "First" in the list's order: with sort by time on the to-do due soonest, in manual order the first to-do from the top that has a time.
+/// At the left and right edges the bar drains towards the bottom, at the top edge towards its middle (see TimeBar). The bar lies in the middle of the strip, between the plate's rounded corners: vertical at the left and right edges (the strip is the plate's side away from the ear),
+/// horizontal at the top edge (the plate's bottom, just under the menu bar). It fades in with the slide away and out with the slide back, and draws nothing without a timed to-do.
+/// Refreshed every second only while shown; the clock stops with the fade. No events: the strip stays the mouse's way to bring the panel back.
+private struct EdgeBar: View {
+    @EnvironmentObject var store: TodoStore
+    /// The bar follows the list's order: sorted by time it counts down the to-do due soonest, in manual order the first timed to-do from the top.
+    @AppStorage("sortByTime") private var sortByTime = false
+    let plate: FrontGeometry
+    let side: EdgeDock.Side
+    let shown: Bool
+    private static let thickness: CGFloat = 3
+
+    var body: some View {
+        Group {
+            if shown {
+                TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                    if let t = store.firstTimed(sortByTime: sortByTime), let due = t.due, let ring = t.ring(now: ctx.date) {
+                        TimeBar(state: ring, overdue: TimeFormat.label(due, now: ctx.date).overdue, vertical: vertical, length: length, thickness: Self.thickness)
+                            .offset(x: origin.x, y: origin.y)
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.22), value: shown)
+    }
+
+    private var vertical: Bool { side != .top }
+
+    /// The bar runs along the strip between the plate's rounded corners.
+    private var length: CGFloat { max((vertical ? plate.rect.height : plate.rect.width) - 2 * plate.radius, 0) }
+
+    /// The bar's top left corner (root view coordinates): in the middle of the strip, one corner radius in from the end.
+    private var origin: CGPoint {
+        let r = plate.rect, radius = plate.radius
+        let inset = (EdgeDock.peek - Self.thickness) / 2
+        switch side {
+        case .right: return CGPoint(x: r.minX + inset, y: r.minY + radius)
+        case .left: return CGPoint(x: r.maxX - EdgeDock.peek + inset, y: r.minY + radius)
+        case .top: return CGPoint(x: r.minX + radius, y: r.maxY - EdgeDock.peek + inset)
+        }
     }
 }
 

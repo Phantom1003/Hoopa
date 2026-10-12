@@ -58,6 +58,10 @@ final class TodoStore: ObservableObject {
     /// The order while collapsed, and while expanded with "sort by time" on: timed to-dos soonest first, the rest in list order.
     var byUrgency: [TodoItem] { Self.urgencyOrder(active) }
 
+    /// The first timed to-do in the list's order (see RootView's EdgeBar: the one the tucked-away panel's strip counts down): sorted by time the one due soonest (an overdue one first of all),
+    /// in manual order the first to-do from the top that has a time. nil without a timed to-do.
+    func firstTimed(sortByTime: Bool) -> TodoItem? { (sortByTime ? byUrgency : active).first { $0.due != nil } }
+
     private static func urgencyOrder(_ items: [TodoItem]) -> [TodoItem] {
         let timed = items.filter { $0.due != nil }.sorted { $0.due!.date < $1.due!.date }
         return timed + items.filter { $0.due == nil }

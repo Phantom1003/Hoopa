@@ -8,6 +8,7 @@ import AppKit
 /// Docked at the left edge the UI puts the ear on the right side of the panel, so the window's left edge is the plate's and the strip left on screen is the plate's, not the ear's column.
 /// Dragging it away from the edge undocks it, and it is an ordinary floating panel again. The side is remembered across launches.
 /// With autoHide off a docked panel stays out, flush with the edge, and never slides away (a setting in the ⋯ menu and the menu bar menu).
+/// Tucked away, the strip carries the first timed to-do's countdown (in the list's order) as a bar along the edge (the UI draws it, see RootView's EdgeBar; the tucked state is reported through onTuckChange).
 /// Tucking waits while the mouse button is down, a menu or popover is open, or a key was just typed into the panel, so nothing slides away under the user's hands.
 /// The window is only ever moved, never resized, here; collapse / expand keep working, and after a resize the panel is snapped to the edge again.
 final class EdgeDock {
@@ -45,8 +46,12 @@ final class EdgeDock {
     /// The side changed (the UI squares the plate's corners on the docked side).
     var onSideChange: ((Side?) -> Void)?
     private var lastKey = Date.distantPast
-    /// Docked and slid off the screen (only the strip shows).
-    private(set) var isTucked = false
+    /// Docked and slid off the screen (only the strip shows). Set at the start of the slide, so the UI's bar on the strip fades in with the slide away and out with the slide back.
+    private(set) var isTucked = false {
+        didSet { if isTucked != oldValue { onTuckChange?(isTucked) } }
+    }
+    /// The tucked state changed (the UI shows the countdown bar on the strip while tucked).
+    var onTuckChange: ((Bool) -> Void)?
     /// The window is being dragged by the mouse.
     private(set) var dragging = false
     /// The window is being moved by the dock itself (a slide, or a snap): not a drag, and the frame may leave the screen (see FloatingPanel.constrainFrameRect).

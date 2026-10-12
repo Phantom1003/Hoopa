@@ -73,6 +73,33 @@ struct TimeRing: View {
     }
 }
 
+/// The time ring laid out straight: a capsule the length given, the same colours as the ring (the track in the next band's colour, the solid part what is left of this lap, solid red once overdue).
+/// Zero is where the solid part ends up: a vertical bar drains towards its bottom (the solid part sits on the bottom, its top sinking), a horizontal one towards its middle
+/// (the solid part stays centred and shrinks from both ends, like a fuse burning in from both sides).
+/// Drawn along the strip of a docked panel tucked away at the screen edge, see RootView's EdgeBar.
+struct TimeBar: View {
+    let state: Ladder.State
+    let overdue: Bool
+    let vertical: Bool
+    let length: CGFloat
+    var thickness: CGFloat = 3
+
+    var body: some View {
+        // Under one thickness a capsule is a squashed dot: a lap that is nearly over still shows as a dot; nothing once it is over (the next lap starts full right after).
+        let left = state.fraction > 0 ? max(thickness, length * state.fraction) : 0
+        ZStack(alignment: vertical ? .bottom : .center) {
+            if overdue {
+                Capsule().fill(Style.overdue)
+            } else {
+                Capsule().fill((state.next ?? state.color).opacity(state.next == nil ? 0.22 : 0.45))
+                Capsule().fill(state.color)
+                    .frame(width: vertical ? thickness : left, height: vertical ? left : thickness)
+            }
+        }
+        .frame(width: vertical ? thickness : length, height: vertical ? length : thickness)
+    }
+}
+
 extension TimeFormat.DueLabel {
     /// The countdown text's warning colour, matching the time ring: red in the last minute and once overdue, orange in the last ten minutes, otherwise nil (each place's default colour).
     var alert: Color? { overdue || critical ? Style.overdue : (urgent ? Style.urgent : nil) }
