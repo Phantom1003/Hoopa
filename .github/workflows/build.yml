@@ -39,15 +39,44 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Build app bundle
-        # No developer certificate on the runner; build.sh never falls back to ad hoc by itself, so ask for ad hoc signing explicitly.
+      - name: Import signing certificate
+        # build.sh refuses to sign ad hoc, so the runner needs the same Apple
+        # Development certificate the maintainer builds with: the .p12 export
+        # (certificate and private key) base64-encoded in HOOPA_SIGN_P12, its
+        # export password in HOOPA_SIGN_P12_PASSWORD. It goes into a throwaway
+        # keychain that the last step deletes. Secrets are not available to
+        # pull requests from forks; those builds fail here.
         env:
-          SIGN_IDENTITY: "-"
+          P12_BASE64: ${{ secrets.HOOPA_SIGN_P12 }}
+          P12_PASSWORD: ${{ secrets.HOOPA_SIGN_P12_PASSWORD }}
+        run: |
+          if [ -z "$P12_BASE64" ]; then
+            echo "::error::secret HOOPA_SIGN_P12 is not set; build.sh does not sign ad hoc"
+            exit 1
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 16)
+          P12="$RUNNER_TEMP/signing.p12"
+          printf '%s' "$P12_BASE64" | base64 --decode > "$P12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$P12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$P12"
+          echo "SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Build app bundle
+        # build.sh picks the Apple Development identity from the keychain imported above.
         run: ./build.sh
 
       - name: Verify bundle
         run: |
           codesign --verify --strict --verbose=2 build/Hoopa.app
+          # Apple-signed, not ad hoc: a Team ID is present, so the Accessibility grant survives an update.
+          codesign -dv --verbose=2 build/Hoopa.app 2>&1 | grep -E '^TeamIdentifier=[A-Z0-9]{10}$'
           plutil -lint build/Hoopa.app/Contents/Info.plist
           test -f build/Hoopa.app/Contents/Resources/Hoopa.icns
           test -f build/Hoopa.app/Contents/Resources/menubar.png
@@ -73,6 +102,13 @@ jobs:
           name: Hoopa-${{ matrix.runner }}-${{ github.sha }}
           path: Hoopa.zip
           if-no-files-found: error
+
+      - name: Remove signing keychain
+        if: always()
+        run: |
+          if [ -n "${SIGNING_KEYCHAIN:-}" ] && [ -f "$SIGNING_KEYCHAIN" ]; then
+            security delete-keychain "$SIGNING_KEYCHAIN"
+          fi
 
   release:
     name: Publish release

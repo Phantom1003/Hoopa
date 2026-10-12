@@ -19,12 +19,13 @@ swift build             # compile check only: no bundle, icons or translations
 
 * `build.sh` needs Xcode (the SwiftUI macro plugin ships only with Xcode) and
   sets `DEVELOPER_DIR` to `/Applications/Xcode.app` when it is unset.
-* It signs with the first *Apple Development* identity in the keychain, or
-  the one in `SIGN_IDENTITY`, and **stops with an error rather than falling
-  back to ad hoc**: macOS ties the Accessibility grant to the signature, and
-  an ad hoc one changes with every build. Signing needs the keychain's
-  private key, which the app's shell sandbox cannot reach, so run the script
-  from Terminal. `SIGN_IDENTITY=-` signs ad hoc on purpose (what CI does).
+* It signs with the first *Apple Development* / *Developer ID* identity in
+  the keychain, or the one in `HOOPA_SIGN_IDENTITY`, and **stops with an
+  error rather than falling back to ad hoc**: macOS ties the Accessibility
+  grant to the signature, and an ad hoc one changes with every build. Signing
+  needs the keychain's private key, which the app's shell sandbox cannot
+  reach, so run the script from Terminal. `HOOPA_SIGN_IDENTITY=-` signs ad
+  hoc on purpose. The variable names follow Shellder's (`SHELLDER_SIGN_*`).
 * Relaunching the app after a build takes the user's running instance down.
   Ask before doing it while the user is working.
 * A release is a `vX.Y` tag. Bump `CFBundleShortVersionString` in
@@ -39,13 +40,20 @@ swift build             # compile check only: no bundle, icons or translations
 
 * Runs on every push to `main`, every PR, every `v*` tag and manual dispatch.
 * Matrix: `macos-26` (GA, blocking) and `xcode-27` (preview,
-  `continue-on-error`). Both run `SIGN_IDENTITY=- ./build.sh`.
-* "Verify bundle" checks structure only: `codesign --verify --strict`,
-  `plutil -lint`, the icns and menubar PNGs. No functional test runs on CI.
-  On a `v*` tag it also checks that the plist version equals the tag.
+  `continue-on-error`). Both run `./build.sh`.
+* "Import signing certificate" puts the maintainer's Apple Development
+  certificate from the secrets `HOOPA_SIGN_P12` (the `.p12` export, base64)
+  and `HOOPA_SIGN_P12_PASSWORD` into a throwaway keychain, deleted at the end
+  of the job; the job fails without them, so pull requests from forks do not
+  build. The same certificate as the maintainer's local builds, so the
+  Accessibility grant survives an update.
+* "Verify bundle" checks structure only: `codesign --verify --strict`, a
+  `TeamIdentifier` in the signature (not ad hoc), `plutil -lint`, the icns
+  and menubar PNGs. No functional test runs on CI. On a `v*` tag it also
+  checks that the plist version equals the tag.
 * A `v*` tag publishes a GitHub Release with the `macos-26` zip
-  (`Hoopa-vX.Y.zip`), ad hoc signed, not notarised. That zip is what
-  `Updater.swift` downloads.
+  (`Hoopa-vX.Y.zip`), signed with that certificate, not notarised. That zip
+  is what `Updater.swift` downloads.
 
 ## How binding and jumping must work
 

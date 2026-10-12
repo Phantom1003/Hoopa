@@ -359,11 +359,13 @@ counts when its version is newer than the running one, so a local build with
 the same number stays put. The check is the only network request Hoopa
 makes; switch it off and it never goes online.
 
-Release builds are ad hoc signed (see [Build & run](#build--run)), so after
-an update macOS asks for the Accessibility grant again (the orange banner
-comes back) and, the next time a browser tab is bound, for the Automation
-grant. A copy still quarantined by Gatekeeper (launched straight from the
-Downloads folder) cannot update itself; move it to Applications first.
+Release builds are signed with the maintainer's Apple Development
+certificate (see [Build & run](#build--run)), the same identity from one
+version to the next, so the Accessibility and Automation grants survive an
+update. They are not notarised, so Gatekeeper may ask you to confirm the
+first launch of a downloaded copy. A copy still quarantined by Gatekeeper
+(launched straight from the Downloads folder) cannot update itself; move it
+to Applications first.
 
 ## App icon
 
@@ -409,13 +411,14 @@ no bundle, icons or translations.
 **Signing.** macOS records the Accessibility grant against the app's code
 signature. An ad hoc signature changes with every build and the grant would
 be lost each time, so `build.sh` signs with the first *Apple Development*
-certificate in the login keychain and stops with an error when there is none
-or the signature fails; it never falls back to ad hoc by itself. Sign into
-Xcode with any Apple ID (Settings → Accounts → Manage Certificates → + →
-Apple Development; a free account's Personal Team is enough) to get one. The
-signing needs the private key, so run the script from Terminal and click
-*Always Allow* when the keychain asks. `SIGN_IDENTITY="…" ./build.sh` picks
-another identity, and `SIGN_IDENTITY=- ./build.sh` signs ad hoc on purpose.
+(or *Developer ID*) certificate in the login keychain and stops with an error
+when there is none or the signature fails; it never falls back to ad hoc by
+itself. Sign into Xcode with any Apple ID (Settings → Accounts → Manage
+Certificates → + → Apple Development; a free account's Personal Team is
+enough) to get one. The signing needs the private key, so run the script
+from Terminal and click *Always Allow* when the keychain asks.
+`HOOPA_SIGN_IDENTITY="…" ./build.sh` picks another identity, and
+`HOOPA_SIGN_IDENTITY=- ./build.sh` signs ad hoc on purpose.
 
 **Permissions.** On first launch the panel asks for Accessibility (window
 detection and jumping). The first time a browser tab is bound, macOS asks
@@ -424,20 +427,28 @@ requested the first time a to-do gets a time. All three are recorded under
 the bundle ID `local.phantom.hoopa`.
 
 **CI** (`.github/workflows/build.yml`) runs on every push to `main`, every
-pull request, every `v*` tag and on manual dispatch: `SIGN_IDENTITY=-
-./build.sh` on `macos-26` (the GA image, blocking) and on `xcode-27` (the
-Xcode 27 preview image, allowed to fail), followed by structural checks of
-the bundle (`codesign --verify --strict`, `plutil -lint`, the icon files).
-There is no functional test. Every run attaches `Hoopa.zip`; a `v*` tag
-publishes the `macos-26` build as a GitHub Release, `Hoopa-vX.Y.zip`, which
-is what running copies find through [Software update](#software-update).
-Bump `CFBundleShortVersionString` in `Resources/Info.plist` to `X.Y` before
-tagging `vX.Y`: CI refuses a tag whose version differs from the plist, since
-the updater only installs a bundle whose version equals the tag. Runners
-have no certificate, so CI builds are ad hoc signed and not notarised: the
-Accessibility grant does not survive an update to another CI build, and
-Gatekeeper may ask you to confirm the first launch. Day to day, build
-locally.
+pull request, every `v*` tag and on manual dispatch: `./build.sh` on
+`macos-26` (the GA image, blocking) and on `xcode-27` (the Xcode 27 preview
+image, allowed to fail), followed by structural checks of the bundle
+(`codesign --verify --strict`, a Team ID in the signature, `plutil -lint`,
+the icon files). There is no functional test. Every run attaches
+`Hoopa.zip`; a `v*` tag publishes the `macos-26` build as a GitHub Release,
+`Hoopa-vX.Y.zip`, which is what running copies find through
+[Software update](#software-update). Bump `CFBundleShortVersionString` in
+`Resources/Info.plist` to `X.Y` before tagging `vX.Y`: CI refuses a tag
+whose version differs from the plist, since the updater only installs a
+bundle whose version equals the tag.
+
+The runner signs with the maintainer's own Apple Development certificate,
+imported for the job from two repository secrets, named the same way as in
+Shellder: `HOOPA_SIGN_P12`, the certificate and its private key exported from
+Keychain Access as a `.p12` and base64-encoded (`base64 -i cert.p12 | pbcopy`),
+and `HOOPA_SIGN_P12_PASSWORD`, the export password. The job fails without
+them (so a pull request from a fork does not build), and the throwaway
+keychain is deleted when it ends. Because every release carries the same
+identity, the Accessibility grant survives an update. The builds are not
+notarised, so Gatekeeper may ask you to confirm the first launch of a
+downloaded copy.
 
 ## Data and preferences
 

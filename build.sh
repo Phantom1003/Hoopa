@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Builds Hoopa.app (Release) and signs it.
 #   ./build.sh                                  # picks the Apple Development certificate in the keychain, errors out without one
-#   SIGN_IDENTITY="Apple Development: xxx" ./build.sh   # a specific signing identity
+#   HOOPA_SIGN_IDENTITY="Apple Development: xxx" ./build.sh   # a specific signing identity (- for ad hoc)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -27,26 +27,27 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"    # the interface translations
 cp "$ICONS/Hoopa.icns" "$ICONS"/menubar*.png "$APP/Contents/Resources/"
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
-# Signing identity: SIGN_IDENTITY from the environment, otherwise the first valid Apple Development certificate in the keychain.
-# No automatic fallback to ad hoc: an ad hoc signature changes with every build and the Accessibility grant is lost. Pass SIGN_IDENTITY=- explicitly for ad hoc.
-if [[ -z "${SIGN_IDENTITY:-}" ]]; then
-  SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
-    | grep -o '"Apple Development: [^"]*"' | head -1 | tr -d '"')
+# Signing identity: HOOPA_SIGN_IDENTITY from the environment, otherwise the first Apple Development / Developer ID identity in the keychain
+# (an Apple-issued identity carries a Team ID, which is what macOS keys the Accessibility grant to; CI imports the same certificate from HOOPA_SIGN_P12).
+# No automatic fallback to ad hoc: an ad hoc signature changes with every build and the Accessibility grant is lost. Pass HOOPA_SIGN_IDENTITY=- explicitly for ad hoc.
+if [[ -z "${HOOPA_SIGN_IDENTITY:-}" ]]; then
+  HOOPA_SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep -oE '"(Apple Development|Developer ID Application): [^"]+"' | head -1 | tr -d '"' || true)
 fi
-if [[ -z "$SIGN_IDENTITY" ]]; then
+if [[ -z "$HOOPA_SIGN_IDENTITY" ]]; then
   rm -rf "$APP"
   echo "❌ No Apple Development certificate in the keychain (sign in to a developer account under Xcode → Settings → Accounts to create one)." >&2
   exit 1
 fi
 # Signing needs the private key in the keychain: run this script from Terminal and click "Always Allow" in the keychain prompt.
 # Delete the unsigned app when signing fails, so it is not opened by mistake.
-if ! codesign --force --sign "$SIGN_IDENTITY" "$APP"; then
+if ! codesign --force --sign "$HOOPA_SIGN_IDENTITY" "$APP"; then
   rm -rf "$APP"
-  echo "❌ Signing failed ($SIGN_IDENTITY). Run from Terminal and click \"Always Allow\" when the keychain unlocks / prompts." >&2
+  echo "❌ Signing failed ($HOOPA_SIGN_IDENTITY). Run from Terminal and click \"Always Allow\" when the keychain unlocks / prompts." >&2
   exit 1
 fi
 # The app was rebuilt in place; tell LaunchServices, or Finder and notifications may keep the old icon.
 touch "$APP"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null || true
-echo "✅ Built $APP (signed with: $SIGN_IDENTITY)"
+echo "✅ Built $APP (signed with: $HOOPA_SIGN_IDENTITY)"
 echo "   Run: open \"$APP\""
