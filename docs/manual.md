@@ -78,7 +78,12 @@ panel by itself (at launch, or after binding), a docked panel comes out for
 a glimpse and goes away unless the mouse comes. Collapsing and expanding
 work as usual and the panel is snapped to the edge again afterwards. Drag it
 away from the edge to undock it. The edge is remembered across launches. An
-edge that another display continues past is not a docking edge. To keep a
+edge that another display continues past is not a docking edge. When
+displays are connected, disconnected or rearranged, a docked panel stays at
+its edge, tucked away or out as it was, on the same display while that is
+connected, else on the one macOS moves it to; if a display now continues
+past that edge, the panel comes out and stays out until that display is
+gone. To keep a
 docked panel out at the edge instead of hiding it, switch *Hide at the
 Screen Edge* off in the ⋯ menu or in the menu bar icon's menu; it then stays
 flush with the edge until you drag it away.
