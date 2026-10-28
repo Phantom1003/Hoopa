@@ -4,7 +4,7 @@ import SwiftUI
 /// the title, the countdown at the right end (orange when nearly due, red once overdue). The ball's icon is the only cue to what is bound, no page name: that is on the chip in the details. With no to-dos at all the only row is "+ Add" (expands the panel and opens the composer); with to-dos it takes no row, creating goes through the expanded panel.
 /// Same order as the panel (manual order; time order while sort by time is on). The slab shows `rows` rows (a setting, Rows When Collapsed in the ⋯ menu and the menu bar menu, 3 unless set);
 /// a longer list scrolls inside that height with the wheel / trackpad (see WheelScroller: one row per wheel notch, settling on whole rows), the slab itself does not grow.
-/// Clicking a row: expands the panel and opens that to-do's details (jumping is the chip in the details, or the context menu); pointing at a row, the countdown at the right end gives way to ○, click it to mark done.
+/// Clicking the ball of a bound to-do jumps to the bound page; clicking anywhere else on a row expands the panel and opens that to-do's details; pointing at a row, the countdown at the right end gives way to ○, click it to mark done.
 /// Fixed width, independent of the content. Expanding is the ear outside the slab's left edge (see EarToggle). The glass is drawn by RootView's plate (collapsed, the plate is the slab), only the content lives here.
 struct CompactView: View {
     @EnvironmentObject var store: TodoStore
@@ -128,13 +128,20 @@ struct CompactView: View {
         .help("Add a to-do")
     }
 
-    /// A row: ball, title …… countdown. A click expands the panel to the details (no direct jump: jumping is the chip in the details, or the context menu).
-    /// Pointing at the row, the countdown at the right end fades out and ○ takes its place (like a mail list where the date turns into action buttons); click ○ to mark done. The ball stays a ball, never a button.
+    /// A row: ball, title …… countdown. A click on the ball of a bound to-do jumps to the bound page; a click anywhere else expands the panel to the details.
+    /// Pointing at the row, the countdown at the right end fades out and ○ takes its place (like a mail list where the date turns into action buttons); click ○ to mark done.
     /// ○ takes the countdown's slot, no extra column, the insets on both sides stay equal; untimed rows reserve the same width for ○, so the title does not shift on hover.
     private func row(_ t: TodoItem) -> some View {
         let isHovered = hovered == t.id
         return HStack(spacing: gap) {
+            // The ball of a bound to-do jumps to the bound page (a spinner while it runs); an unbound ball has nothing to jump to and opens the details like the rest of the row.
+            // A tap gesture, not a Button, like the row: the slab can still be dragged by the ball.
             ballView(t)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if t.binding != nil { coordinator.jump(t) } else { coordinator.expand(showing: t.id) }
+                }
+                .help(t.binding != nil ? Text("Jump to Bound Page") : Text("Show details"))
             titleLine(t)
             Spacer(minLength: 6)
             ZStack(alignment: .trailing) {

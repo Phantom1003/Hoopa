@@ -177,10 +177,11 @@ bar icon's *Settings* submenu) makes it 3, 5, 8 or 12 rows tall. Each row:
   in the last minute, `Overdue` once the time has passed. The absolute time
   is on the time chip in the expanded panel.
 
-Click a row and the panel expands with that to-do's details open. Point at a
-row and ○ appears at its right end, where the countdown was: click it to mark
-the to-do done. The ball stays the to-do's head and is not a button. The
-right-click menu offers *Jump to Bound Page*, *Mark as Done*, *Copy*,
+Click the ball of a bound to-do to jump to its page (it turns into a spinner
+while the jump runs). Click anywhere else on a row, or the ball of an unbound
+to-do, and the panel expands with that to-do's details open. Point at a row
+and ○ appears at its right end, where the countdown was: click it to mark the
+to-do done. The right-click menu offers *Jump to Bound Page*, *Mark as Done*, *Copy*,
 *Duplicate*, *Expand* and *Quit*. When there are no to-dos at all, the slab shows a single "+ Add a
 to-do" row that expands the panel with the composer open.
 
@@ -224,8 +225,9 @@ can only be bound as a whole.
 
 ## Jumping back
 
-Click the binding chip, choose *Jump to Bound Page* from a right-click menu,
-or click the to-do's notification. The chip shows a spinner while the jump
+Click the binding chip, click the ball of a row in the collapsed list, choose
+*Jump to Bound Page* from a right-click menu, or click the to-do's
+notification. The chip shows a spinner while the jump
 runs, and a toast reports the outcome: *Jumped back*, *The page was closed
 and has been reopened*, *Triggered the target, but couldn't confirm the page
 switched*, *Switched to the window, but couldn't find the exact target*,
