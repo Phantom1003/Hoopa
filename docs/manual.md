@@ -64,11 +64,22 @@ tucked away the panel leaves its strip just under the menu bar, where the
 mouse can reach it. At the left edge the ear moves to the panel's right
 side, so the panel itself is flush with the screen edge, square corners
 included. The strip is not blank: it carries the countdown of the first
-timed to-do as a bar along the edge, the time ring laid out straight (same
-colours, the track showing the next band; once overdue a gold warning tape whose black stripes slowly flicker and swell), so the
-time stays in view while the panel is away. At the left and right edges the
-bar drains towards the bottom; under the menu bar it burns in from both
-ends towards the middle. "First" follows the list's order: with ⇅ on it is
+timed to-do as a bar along the edge, so the time stays in view while the
+panel is away. The bar is a ruler of the time left, a month down to zero,
+cut into six equal stretches by the bands of the time ring (see [The
+collapsed list](#the-collapsed-list)). From zero: red for the last minute,
+orange to ten minutes, green to an hour, mint to a day, cyan to a week and
+blue to a month. Notches mark the bounds between the stretches, so they
+always sit at the same places and mean the same time: a minute, ten
+minutes, an hour, a day and a week. The track shows each stretch faintly in
+its colour; the solid part, what is left, takes the colour of the band the
+time is in, and within a stretch it moves evenly: with 35 minutes left it
+ends halfway through the green stretch. Unlike the ring, which starts a full
+lap in each band, the bar runs down once. At the left and right edges it
+drains towards the bottom; under the menu bar it burns in from both ends
+towards the middle, and the stretches are mirrored about the middle. Once
+overdue it is a gold warning tape whose black stripes slowly flicker and
+swell. "First" follows the list's order: with ⇅ on it is
 the to-do due soonest, in your own order the first to-do from the top that
 has a time. Rest the mouse on that strip and it slides back. It stays out
 while the mouse is on it, while a menu or a popover is open or you have just

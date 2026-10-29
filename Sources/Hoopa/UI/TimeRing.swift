@@ -18,6 +18,8 @@ enum Ladder {
         var color: Color { Ladder.colors[band] }
         /// The next band's colour (what shows once this lap has run down); none for the last band.
         var next: Color? { band + 1 < Ladder.colors.count ? Ladder.colors[band + 1] : nil }
+        /// Where the time left falls on the edge bar's ruler (0…1, see TimeBar): every band is an equal stretch of it, the last minute nearest zero, and within a stretch the time runs evenly.
+        var ruler: Double { (Double(Ladder.colors.count - 1 - band) + fraction) / Double(Ladder.colors.count) }
     }
 
     private static func band(_ remaining: TimeInterval) -> Int { steps.firstIndex { remaining >= $0 } ?? steps.count }
@@ -186,31 +188,90 @@ struct TimeRing: View {
     }
 }
 
-/// The time ring laid out straight: a capsule the length given, the same colours as the ring (the track in the next band's colour, the solid part what is left of this lap).
+/// A ruler of the time left, a capsule the length given: a month down to zero, the time ring's six bands as six equal stretches of it (see Ladder.State.ruler), from zero
+/// red (the last minute), orange (to ten minutes), green (to an hour), mint (to a day), cyan (to a week) and blue (to a month). Notches cut across the bar at the bounds
+/// between the stretches, so they always sit at the same places and mean the same time: a minute, ten minutes, an hour, a day and a week from zero.
+/// Unlike the ring, which starts a full lap in each band, the bar runs once from full to zero: a bar whose notches meant other times in every colour could not be read at a glance.
+/// The track shows each stretch faintly in its band's colour; the solid part, what is left, is in the colour of the band the time is in (the ring's colour).
 /// Zero is where the solid part ends up: a vertical bar drains towards its bottom (the solid part sits on the bottom, its top sinking), a horizontal one towards its middle
-/// (the solid part stays centred and shrinks from both ends, like a fuse burning in from both sides).
+/// (the solid part stays centred and shrinks from both ends, like a fuse burning in from both sides; the stretches and notches are mirrored about the middle).
 /// Once overdue the bar is a warning tape: gold with thin black diagonal stripes that flicker slowly (see HazardBar).
 /// Drawn along the strip of a docked panel tucked away at the screen edge, see RootView's EdgeBar.
 struct TimeBar: View {
+    @Environment(\.displayScale) private var scale
     let state: Ladder.State
     let overdue: Bool
     let vertical: Bool
     let length: CGFloat
     var thickness: CGFloat = 3
+    /// A notch's width, and the least length of a stretch: a bar too short for that has no notches.
+    private static let notch: CGFloat = 1
+    private static let minStretch: CGFloat = 5
+    private static let trackOpacity = 0.3
 
     var body: some View {
-        // Under one thickness a capsule is a squashed dot: a lap that is nearly over still shows as a dot; nothing once it is over (the next lap starts full right after).
-        let left = state.fraction > 0 ? max(thickness, length * state.fraction) : 0
-        ZStack(alignment: vertical ? .bottom : .center) {
+        // Under one thickness a capsule is a squashed dot: time nearly up still shows as a dot; nothing once it is up.
+        let left = state.ruler > 0 ? max(thickness, length * state.ruler) : 0
+        Group {
             if overdue {
                 HazardBar()
             } else {
-                Capsule().fill((state.next ?? state.color).opacity(state.next == nil ? 0.22 : 0.45))
-                Capsule().fill(state.color)
-                    .frame(width: vertical ? thickness : left, height: vertical ? left : thickness)
+                ZStack(alignment: vertical ? .bottom : .center) {
+                    track
+                    Capsule().fill(state.color)
+                        .frame(width: vertical ? thickness : left, height: vertical ? left : thickness)
+                }
+                .clipShape(Capsule())
+                .mask(Notches(at: notches, vertical: vertical, width: Self.notch).fill(style: FillStyle(eoFill: true)))
             }
         }
         .frame(width: vertical ? thickness : length, height: vertical ? length : thickness)
+    }
+
+    /// The length one band takes, from zero towards either end.
+    private var stretch: CGFloat { (vertical ? length : length / 2) / CGFloat(Ladder.colors.count) }
+
+    /// The stretches in their bands' colours, faint (the ends are rounded by the clip around it).
+    private var track: some View {
+        Canvas { g, size in
+            let n = Ladder.colors.count, s = stretch
+            for k in 0..<n {    // k: the stretch's place from zero, the last band first
+                let color = GraphicsContext.Shading.color(Ladder.colors[n - 1 - k].opacity(Self.trackOpacity))
+                if vertical {
+                    g.fill(Path(CGRect(x: 0, y: size.height - CGFloat(k + 1) * s, width: size.width, height: s)), with: color)
+                } else {
+                    let mid = size.width / 2
+                    g.fill(Path(CGRect(x: mid + CGFloat(k) * s, y: 0, width: s, height: size.height)), with: color)
+                    g.fill(Path(CGRect(x: mid - CGFloat(k + 1) * s, y: 0, width: s, height: size.height)), with: color)
+                }
+            }
+        }
+    }
+
+    /// The notches' centres along the bar, from its top / left edge, each notch's edges on the pixel grid: at the bounds between the stretches, mirrored about a horizontal bar's middle.
+    private var notches: [CGFloat] {
+        let s = stretch
+        guard s >= Self.minStretch else { return [] }
+        let snap = { (x: CGFloat) in ((x - Self.notch / 2) * scale).rounded() / scale + Self.notch / 2 }
+        return (1..<Ladder.colors.count).flatMap { k in
+            vertical ? [snap(length - CGFloat(k) * s)] : [snap(length / 2 - CGFloat(k) * s), snap(length / 2 + CGFloat(k) * s)]
+        }
+    }
+}
+
+/// TimeBar's mask (filled even-odd): the bar's whole rect with a thin gap across it at each notch.
+private struct Notches: Shape {
+    let at: [CGFloat]
+    let vertical: Bool
+    let width: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path(rect)
+        for c in at {
+            p.addRect(vertical ? CGRect(x: rect.minX, y: rect.minY + c - width / 2, width: rect.width, height: width)
+                               : CGRect(x: rect.minX + c - width / 2, y: rect.minY, width: width, height: rect.height))
+        }
+        return p
     }
 }
 
