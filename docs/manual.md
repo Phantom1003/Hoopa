@@ -162,7 +162,7 @@ bar icon's *Settings* submenu) makes it 3, 5, 8 or 12 rows tall. Each row:
   visible as its first hour. The track under the arc shows the next band's
   colour, the bar that is still to come. The laps have fixed lengths, so the
   ring reads the same on every row: two to-dos with three days left show
-  the same mint arc, whenever each was set; an hour's timer begins with a
+  the same cyan arc, whenever each was set; an hour's timer begins with a
   full green lap, a date three weeks out two thirds into the blue one, and
   beyond a month the blue ring is full. An unbound ball takes the ring's
   colour. Once the time has passed the to-do falls through one of Hoopa's
