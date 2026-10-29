@@ -1,6 +1,7 @@
 import Foundation
 
 /// The time chip's text: countdown + absolute time, the same for both kinds of to-do time.
+/// The collapsed list and the cards show the short time (`short`) in columns sized by `shortTemplates` / `countdownTemplates`; the full absolute time is in the chip's tooltip and the time picker.
 enum TimeFormat {
     private static let clock: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "HH:mm"; return f
@@ -8,6 +9,9 @@ enum TimeFormat {
     // Dates follow the interface language: "Sep 25" / "Sep 25, 2027" in English, the localized forms otherwise.
     private static let monthDay = formatter { $0.setLocalizedDateFormatFromTemplate("MMMd") }
     private static let yearMonthDay = formatter { $0.setLocalizedDateFormatFromTemplate("yMMMd") }
+    // The short time's date: two-digit month and day, "11/09" in both languages (2027/03/01 in Chinese, 03/01/2027 in English when not this year).
+    private static let numericMonthDay = formatter { $0.setLocalizedDateFormatFromTemplate("MMdd") }
+    private static let numericYearMonthDay = formatter { $0.setLocalizedDateFormatFromTemplate("yMMdd") }
     // The system's own relative words: compared with the result without them; a difference means one exists (Today, Tomorrow, Yesterday…).
     private static let relative = formatter { $0.dateStyle = .medium; $0.doesRelativeDateFormatting = true }
     private static let plain = formatter { $0.dateStyle = .medium }
@@ -16,14 +20,14 @@ enum TimeFormat {
         let f = DateFormatter(); f.locale = AppLanguage.locale; setup(f); return f
     }
 
-    /// A duration: only the two largest units, more precise the closer it gets: "1d 03h" / "20h 00m" / "4m 10s" / "59s".
+    /// A duration: only the two largest units, more precise the closer it gets, written together: "1d03h" / "20h00m" / "4m10s" / "59s".
     /// A leading zero unit is dropped, the second unit is padded to two digits (0 shows too), so the width does not change as the digits tick.
     static func duration(_ seconds: Int) -> String {
         let u = [(seconds / 86400, "d"), (seconds % 86400 / 3600, "h"), (seconds % 3600 / 60, "m"), (seconds % 60, "s")]
         let first = u.firstIndex { $0.0 > 0 } ?? u.count - 1
         return u[first...].prefix(2).enumerated().map { i, p in
             i == 0 ? "\(p.0)\(p.1)" : String(format: "%02d", p.0) + p.1
-        }.joined(separator: " ")
+        }.joined()
     }
 
     /// Remaining time, formatted like duration; stops at 0 once past, never negative.
@@ -59,6 +63,27 @@ enum TimeFormat {
         dayOffset(d, now: now) == 0 ? clockTime(d) : "\(day(d, now: now)) \(clockTime(d))"
     }
 
+    /// The short time: beyond a day the date alone, "11/09"; within a day the clock alone, "09:30" (within 24 hours a clock time names one moment,
+    /// the countdown beside it tells today from tomorrow). Past due: the clock when that was today, else the date. A plain date from old data is its date.
+    static func short(_ due: Due, now: Date) -> String {
+        if case .date(let d) = due { return numericDate(d, now: now) }
+        let at = end(due)
+        let left = at.timeIntervalSince(now)
+        if left >= 86400 { return numericDate(at, now: now) }
+        if left > 0 { return clockTime(at) }
+        return dayOffset(at, now: now) == 0 ? clockTime(at) : numericDate(at, now: now)
+    }
+
+    /// 11/09; with the year when not this year.
+    static func numericDate(_ d: Date, now: Date) -> String {
+        Calendar.current.isDate(d, equalTo: now, toGranularity: .year) ? numericMonthDay.string(from: d) : numericYearMonthDay.string(from: d)
+    }
+
+    /// What the time columns are sized by (see TemplateWidth): every form the short time and the countdown take, at their widest (the digits are monospaced),
+    /// so a column is as wide on every row whatever it shows. A date with the year or a countdown of 100 days or more is wider and widens its own row only.
+    static let shortTemplates = [numericMonthDay.string(from: Date()), clockTime(Date())]
+    static let countdownTemplates = [duration(99 * 86400 + 23 * 3600), duration(23 * 3600 + 59 * 60), duration(59 * 60 + 59), String(localized: "Overdue")]
+
     /// Sep 25; with the year when not this year: Sep 25, 2027
     static func monthDay(_ d: Date, now: Date = Date()) -> String {
         Calendar.current.isDate(d, equalTo: now, toGranularity: .year) ? monthDay.string(from: d) : yearMonthDay.string(from: d)
@@ -70,6 +95,7 @@ enum TimeFormat {
     struct DueLabel {
         let text: String       // the chip's main text (countdown; "Overdue" once past due)
         let detail: String     // the secondary text (absolute time)
+        let short: String      // the short time of the columns (see short)
         let overdue: Bool
         let urgent: Bool       // the last 10 minutes (matching the time ring's orange band, timers and dates alike)
         let critical: Bool     // the last minute (the time ring's red lap)
@@ -93,7 +119,7 @@ enum TimeFormat {
         case .countdown, .dateTime: detail = absolute(at, now: now)
         case .date(let d): detail = day(d, now: now)      // a plain date from old data: the absolute time is the date only
         }
-        return DueLabel(text: countdown(until: at, now: now), detail: detail,
+        return DueLabel(text: countdown(until: at, now: now), detail: detail, short: short(due, now: now),
                         overdue: left < 0, urgent: left >= 0 && left < 600, critical: left >= 0 && left < 60)
     }
 }

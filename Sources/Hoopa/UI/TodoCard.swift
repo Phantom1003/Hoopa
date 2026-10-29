@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A to-do: a sticky-note card. Normally one row: ○ title (a small icon at the end when there are notes), above it a flush-left row with the binding chip (click to jump) and the time chip (click to change the time), the × right of a chip removes the binding / time;
+/// A to-do: a sticky-note card. Normally one row: ○ title (a small icon at the end when there are notes), above it a flush-left row with the time chip (click to change the time) and the binding chip (click to jump), the × right of a chip removes the time / binding;
 /// on hover the action buttons appear at the top right. A click opens the details: title and notes are editable (saved as typed) and the action buttons stay; click empty space or press Esc to close.
 struct TodoCard: View {
     let todo: TodoItem
@@ -19,16 +19,14 @@ struct TodoCard: View {
     private var hasChips: Bool { todo.binding != nil || todo.due != nil }
     /// The done box's width + its gap to the title: the notes are indented by this much to line up with the title text. The chip row is flush left, not indented.
     private static let textInset: CGFloat = 22
+    /// The least room for the page name on the binding chip; with less the chip shows the app icon alone.
+    private static let minPageName: CGFloat = 48
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if hasChips || selected {
                 HStack(spacing: 6) {
-                    // Show everything when it fits; otherwise drop the absolute time inside the time chip first (hover shows it), then truncate the page name.
-                    ViewThatFits(in: .horizontal) {
-                        chips(detail: true)
-                        chips(detail: false)
-                    }
+                    chips
                     Spacer(minLength: 0)
                     if selected || hovering { actions }
                 }
@@ -120,19 +118,26 @@ struct TodoCard: View {
         }
     }
 
-    /// The chip row: the binding chip (click to jump), the time chip (click to change the time), each with a × on its right that removes the binding / time.
-    /// detail: whether the time chip carries the absolute time.
-    private func chips(detail: Bool) -> some View {
+    /// The chip row: the time chip first (click to change the time), as wide on every card (see DueChip's columns), so the times line up as a column and the binding chips start
+    /// at the same place; then the binding chip (click to jump) in the room left, its page name truncated to fit, the app icon alone with less than minPageName for the name.
+    /// Each chip has a × on its right that removes the time / binding. Nothing is reserved for the actions: when they show, the page name gives way.
+    private var chips: some View {
         HStack(spacing: 6) {
-            if let b = todo.binding {
-                BindingChip(binding: b, jumping: isJumping, action: { coordinator.jump(todo) }, help: b.detailDescription,
-                            onRemove: { store.setBinding(nil, for: todo.id) })
-            }
             if let d = todo.due {
-                DueChip(due: d, showDetail: detail, ring: todo.ring, action: { showDue.toggle() }, help: String(localized: "Change time"),
-                        onRemove: { store.setDue(nil, for: todo.id) })
+                DueChip(due: d, columns: true, ring: todo.ring, action: { showDue.toggle() }, onRemove: { store.setDue(nil, for: todo.id) })
+            }
+            if let b = todo.binding {
+                ViewThatFits(in: .horizontal) {
+                    bindingChip(b, iconOnly: false)
+                    bindingChip(b, iconOnly: true)
+                }
             }
         }
+    }
+
+    private func bindingChip(_ b: ContextBinding, iconOnly: Bool) -> some View {
+        BindingChip(binding: b, jumping: isJumping, action: { coordinator.jump(todo) }, help: b.detailDescription,
+                    onRemove: { store.setBinding(nil, for: todo.id) }, minName: Self.minPageName, iconOnly: iconOnly)
     }
 
     /// Actions: set a time (when there is none), bind / rebind, delete. Always shown while open, otherwise on hover; as tall as a chip, at the right end of the chip row.

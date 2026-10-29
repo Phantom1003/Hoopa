@@ -28,6 +28,8 @@ struct BindingChip: View {
     var action: (() -> Void)? = nil     // click: jump (not passed when the chip sits inside another button in the composer)
     var help: String? = nil
     var onRemove: (() -> Void)? = nil   // the × on the right, removes the binding
+    var minName: CGFloat? = nil         // the page name's ideal width, whatever its length: the least room a ViewThatFits must find for it
+    var iconOnly = false                // the app icon alone, no page name (no room for it; the tooltip has it)
 
     var body: some View {
         HStack(spacing: 6) {
@@ -35,9 +37,12 @@ struct BindingChip: View {
                 HStack(spacing: 5) {
                     AppIcon(binding: binding)
                     // The important part of a page title comes first ("Title | Site"), so truncate the tail when it does not fit, never the middle (that leaves "Ad…ion").
-                    Text(binding.pageName)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    if !iconOnly {
+                        Text(binding.pageName)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(idealWidth: minName)
+                    }
                     if jumping { ProgressView().controlSize(.mini) }
                 }
             }
@@ -97,6 +102,20 @@ struct OptionalChip: ViewModifier {
     }
 }
 
+/// A cell as wide as the widest of its templates, whatever it shows, its content at the trailing edge: cells given the same templates line up as a column from row to row,
+/// in any language, without a fixed width. The templates are laid out hidden in the same font as the content.
+struct TemplateWidth<Content: View>: View {
+    let templates: [String]
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            ForEach(templates, id: \.self) { Text($0).hidden().accessibilityHidden(true) }
+            content()
+        }
+    }
+}
+
 /// A text-only countdown (used in the collapsed list's description row): refreshes every second, orange in the last ten minutes, red in the last minute and once overdue; hover for the absolute time.
 struct DueText: View {
     let due: Due
@@ -114,11 +133,13 @@ struct DueText: View {
 }
 
 /// The time chip: countdown (refreshed every second) + absolute time, the same for timers and date-times. action: a click changes the time; onRemove: the × on the right removes the time.
+/// columns: the card's form, the countdown and the short time (TimeFormat.short) in cells sized by TimeFormat's templates, so the chip is as wide on every card and the times
+/// line up as a column; the full absolute time is in the tooltip. Without it (the time picker) the countdown is followed by the full absolute time after a dot.
 /// ring: the to-do's time ring state at a moment; with it the countdown takes the ring's colour (the same band colour as on the collapsed list's ball), red once overdue.
 /// Without it (a time not yet submitted in the picker) the countdown only carries the warning colours. The absolute time stays grey either way.
 struct DueChip: View {
     let due: Due
-    var showDetail = true
+    var columns = false
     var bare = false
     var ring: ((Date) -> Ladder.State?)? = nil
     var action: (() -> Void)? = nil
@@ -130,12 +151,18 @@ struct DueChip: View {
             let l = TimeFormat.label(due, now: ctx.date)
             let countdown = l.overdue ? Style.overdue : (ring?(ctx.date)?.color ?? l.alert ?? Style.text)
             HStack(spacing: 6) {
-                // When the absolute time is not shown (no room) hover shows it, replacing the button's own tooltip.
-                ChipButton(action: action, help: showDetail ? help : l.detail) {
-                    HStack(spacing: 4) {
-                        Text(l.text).monospacedDigit().foregroundStyle(countdown)
-                        if showDetail {
+                // In columns the full absolute time is not shown: hover shows it, replacing the button's own tooltip.
+                ChipButton(action: action, help: columns ? l.detail : help) {
+                    if columns {
+                        HStack(spacing: 6) {
+                            TemplateWidth(templates: TimeFormat.countdownTemplates) { Text(l.text).foregroundStyle(countdown) }
+                            TemplateWidth(templates: TimeFormat.shortTemplates) { Text(l.short).foregroundStyle(Style.secondary) }
+                        }
+                        .monospacedDigit()
+                    } else {
+                        HStack(spacing: 4) {
                             // Countdown first, the absolute time after it: with a separator dot, in grey.
+                            Text(l.text).monospacedDigit().foregroundStyle(countdown)
                             Text("·").foregroundStyle(Style.tertiary)
                             Text(l.detail).monospacedDigit().foregroundStyle(Style.secondary)
                         }

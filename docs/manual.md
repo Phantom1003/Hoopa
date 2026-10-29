@@ -116,7 +116,7 @@ Each to-do is a card:
 |---|---|
 | ○ | Marks the to-do done. Completed to-dos disappear unless *Show Completed* is on; *Clear Completed* removes them for good. |
 | Title | One line. A small text icon at its end means the to-do has notes; hover it to read them. |
-| Chip row | The binding chip (app icon + page name) and the time chip (countdown · absolute time). Clicking the binding chip jumps; clicking the time chip changes the time. Every chip has a × that removes the binding or the time. When the row is too narrow, the absolute time is dropped first (hover the chip to see it), then the page name is truncated. |
+| Chip row | The time chip (countdown and short time, see [Timers, dates and notifications](#timers-dates-and-notifications)) and the binding chip (app icon + page name). The time chip is as wide on every card, so the times line up as a column and the binding chips all start at the same place. Clicking the time chip changes the time (hover it for the full time); clicking the binding chip jumps. Every chip has a × that removes the time or the binding. The page name is truncated to fit; with too little room for it the binding chip shows the app icon alone (hover it for the page). |
 | Hover actions | Timer (when the to-do has none), ⌖ (bind, or rebind), trash. They sit at the right end of the chip row, or float over the title when there is no chip row. |
 
 Click a card to open its details: the title and the notes become editable and
@@ -173,14 +173,16 @@ bar icon's *Settings* submenu) makes it 3, 5, 8 or 12 rows tall. Each row:
   icon is simply shown sunk.
 * **The title**, one line. The ball's icon is all the row says about the
   binding; the page name is on the chip in the expanded panel.
-* **The countdown** at the right edge: orange in the last ten minutes, red
-  in the last minute, `Overdue` once the time has passed. The absolute time
-  is on the time chip in the expanded panel.
+* **The time** at the right edge, in two columns that line up from row to
+  row: the short time in grey (`11/09` when the moment is more than a day
+  away, `09:30` within a day), then the countdown: orange in the last ten
+  minutes, red in the last minute, `Overdue` once the time has passed. The
+  full time is on the time chip in the expanded panel.
 
 Click the ball of a bound to-do to jump to its page (it turns into a spinner
 while the jump runs). Click anywhere else on a row, or the ball of an unbound
 to-do, and the panel expands with that to-do's details open. Point at a row
-and ○ appears at its right end, where the countdown was: click it to mark the
+and ○ appears at its right end, where the time was: click it to mark the
 to-do done. The right-click menu offers *Jump to Bound Page*, *Mark as Done*, *Copy*,
 *Duplicate*, *Expand* and *Quit*. When there are no to-dos at all, the slab shows a single "+ Add a
 to-do" row that expands the panel with the composer open.
@@ -283,11 +285,17 @@ The ◔ button and the *Timer / Date…* menu item open the time picker:
 * **Date & Time**: today, tomorrow, the day after (or any day from the
   calendar) and a clock dial.
 
-The time chip shows the countdown in its two largest units (`1d 03h`,
-`20h 00m`, `4m 10s`) followed by the absolute time (`14:30`, or `Tomorrow
-14:30`). The countdown is in the colour of the to-do's time ring (blue beyond
-a week, then cyan, mint, green, orange, red in the last minute), and
-red with `Overdue` once the time has passed; the absolute time stays grey.
+The time chip shows the countdown in its two largest units (`1d03h`,
+`20h00m`, `4m10s`) followed by the short time: the date (`11/09`, with the
+year when it is not this year) when the moment is more than a day away,
+otherwise the clock time (`09:30`; within a day a clock time names a single
+moment, and the countdown tells today from tomorrow). Once the time has
+passed it shows the clock time when that was today, otherwise the date.
+Hover the chip for the full time (`Nov 9 10:42`, `Tomorrow 09:30`); the
+time picker shows it too. The countdown is in the colour of the to-do's time
+ring (blue beyond a week, then cyan, mint, green, orange, red in the last
+minute), and red with `Overdue` once the time has passed; the short time
+stays grey. The collapsed list shows the same two, the other way round.
 
 At the moment itself Hoopa posts a system notification with the to-do's title
 ("Timer finished" or "Time's up", plus "Click to go back to …" when the

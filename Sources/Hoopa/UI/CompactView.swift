@@ -1,10 +1,10 @@
 import SwiftUI
 
 /// Collapsed: a mini list on a glass slab. One row per to-do: the ball (the to-do's head: the bound app's icon, a green fluffy ball when unbound; timed ones ringed by the time ring),
-/// the title, the countdown at the right end (orange when nearly due, red once overdue). The ball's icon is the only cue to what is bound, no page name: that is on the chip in the details. With no to-dos at all the only row is "+ Add" (expands the panel and opens the composer); with to-dos it takes no row, creating goes through the expanded panel.
+/// the title, the time at the right end: the short time (date beyond a day, clock within one) and the countdown (orange when nearly due, red once overdue), two columns that line up from row to row. The ball's icon is the only cue to what is bound, no page name: that is on the chip in the details. With no to-dos at all the only row is "+ Add" (expands the panel and opens the composer); with to-dos it takes no row, creating goes through the expanded panel.
 /// Same order as the panel (manual order; time order while sort by time is on). The slab shows `rows` rows (a setting, Rows When Collapsed in the ⋯ menu and the menu bar menu, 3 unless set);
 /// a longer list scrolls inside that height with the wheel / trackpad (see WheelScroller: one row per wheel notch, settling on whole rows), the slab itself does not grow.
-/// Clicking the ball of a bound to-do jumps to the bound page; clicking anywhere else on a row expands the panel and opens that to-do's details; pointing at a row, the countdown at the right end gives way to ○, click it to mark done.
+/// Clicking the ball of a bound to-do jumps to the bound page; clicking anywhere else on a row expands the panel and opens that to-do's details; pointing at a row, the time at the right end gives way to ○, click it to mark done.
 /// Fixed width, independent of the content. Expanding is the ear outside the slab's left edge (see EarToggle). The glass is drawn by RootView's plate (collapsed, the plate is the slab), only the content lives here.
 struct CompactView: View {
     @EnvironmentObject var store: TodoStore
@@ -128,9 +128,9 @@ struct CompactView: View {
         .help("Add a to-do")
     }
 
-    /// A row: ball, title …… countdown. A click on the ball of a bound to-do jumps to the bound page; a click anywhere else expands the panel to the details.
-    /// Pointing at the row, the countdown at the right end fades out and ○ takes its place (like a mail list where the date turns into action buttons); click ○ to mark done.
-    /// ○ takes the countdown's slot, no extra column, the insets on both sides stay equal; untimed rows reserve the same width for ○, so the title does not shift on hover.
+    /// A row: ball, title …… short time, countdown. A click on the ball of a bound to-do jumps to the bound page; a click anywhere else expands the panel to the details.
+    /// Pointing at the row, the time at the right end fades out and ○ takes its place (like a mail list where the date turns into action buttons); click ○ to mark done.
+    /// ○ takes the time's slot, no extra column, the insets on both sides stay equal; untimed rows reserve the same width for ○, so the title does not shift on hover.
     private func row(_ t: TodoItem) -> some View {
         let isHovered = hovered == t.id
         return HStack(spacing: gap) {
@@ -254,14 +254,22 @@ struct CompactView: View {
         .lineLimit(1).truncationMode(.tail)
     }
 
-    /// The countdown at the right end (refreshed every second; orange in the last ten minutes, red in the last minute, red "Overdue" once past due).
-    /// It gives way to ○ when the row is pointed at, so it carries no absolute-time tooltip: the absolute time is on the time chip in the details.
+    /// The time at the right end (refreshed every second): the short time in grey, then the countdown (orange in the last ten minutes, red in the last minute, red "Overdue" once past due),
+    /// each in a cell sized by TimeFormat's templates, so both line up as columns from row to row and the countdown stays at the right end.
+    /// It gives way to ○ when the row is pointed at, so it carries no tooltip: the full absolute time is on the time chip in the details.
     private func time(_ d: Due) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
             let l = TimeFormat.label(d, now: ctx.date)
-            Text(l.text).font(.system(size: 11, weight: .semibold)).monospacedDigit()
-                .foregroundStyle(l.alert ?? Style.secondary)
-                .fixedSize()
+            HStack(spacing: 6) {
+                TemplateWidth(templates: TimeFormat.shortTemplates) { Text(l.short) }
+                    .font(.system(size: 11))
+                    .foregroundStyle(Style.secondary)
+                TemplateWidth(templates: TimeFormat.countdownTemplates) { Text(l.text) }
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(l.alert ?? Style.secondary)
+            }
+            .monospacedDigit()
+            .fixedSize()
         }
     }
 
