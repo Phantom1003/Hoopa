@@ -47,6 +47,10 @@ swift build             # compile check only: no bundle, icons or translations
   of the job; the job fails without them, so pull requests from forks do not
   build. The same certificate as the maintainer's local builds, so the
   Accessibility grant survives an update.
+* A failed "Build app bundle" also raises the compiler's `error:` lines (or
+  else the log's last lines) as annotations: the check run's annotations
+  (`/repos/<owner>/<repo>/check-runs/<job id>/annotations`) are readable
+  without signing in, the log is not.
 * "Verify bundle" checks structure only: `codesign --verify --strict`, a
   `TeamIdentifier` in the signature (not ad hoc), `plutil -lint`, the icns
   and menubar PNGs. No functional test runs on CI. On a `v*` tag it also
