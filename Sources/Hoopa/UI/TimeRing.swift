@@ -249,13 +249,24 @@ struct TimeBar: View {
     }
 
     /// The notches' centres along the bar, from its top / left edge, each notch's edges on the pixel grid: at the bounds between the stretches, mirrored about a horizontal bar's middle.
+    /// Spelled out step by step: as one expression (a ternary of array literals in a flatMap) Xcode 26's type checker gave up on it.
     private var notches: [CGFloat] {
         let s = stretch
         guard s >= Self.minStretch else { return [] }
-        let snap = { (x: CGFloat) in ((x - Self.notch / 2) * scale).rounded() / scale + Self.notch / 2 }
-        return (1..<Ladder.colors.count).flatMap { k in
-            vertical ? [snap(length - CGFloat(k) * s)] : [snap(length / 2 - CGFloat(k) * s), snap(length / 2 + CGFloat(k) * s)]
+        let half: CGFloat = Self.notch / 2
+        let scale: CGFloat = self.scale
+        func snap(_ x: CGFloat) -> CGFloat { ((x - half) * scale).rounded() / scale + half }
+        var at: [CGFloat] = []
+        for k in 1..<Ladder.colors.count {
+            let d = CGFloat(k) * s
+            if vertical {
+                at.append(snap(length - d))
+            } else {
+                at.append(snap(length / 2 - d))
+                at.append(snap(length / 2 + d))
+            }
         }
+        return at
     }
 }
 
@@ -268,8 +279,12 @@ private struct Notches: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path(rect)
         for c in at {
-            p.addRect(vertical ? CGRect(x: rect.minX, y: rect.minY + c - width / 2, width: rect.width, height: width)
-                               : CGRect(x: rect.minX + c - width / 2, y: rect.minY, width: width, height: rect.height))
+            let start: CGFloat = c - width / 2
+            if vertical {
+                p.addRect(CGRect(x: rect.minX, y: rect.minY + start, width: rect.width, height: width))
+            } else {
+                p.addRect(CGRect(x: rect.minX + start, y: rect.minY, width: width, height: rect.height))
+            }
         }
         return p
     }
